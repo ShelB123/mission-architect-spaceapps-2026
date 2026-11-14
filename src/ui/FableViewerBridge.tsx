@@ -1,0 +1,22 @@
+import { useMemo } from "react";
+import { components } from "../data/catalog";
+import SpacecraftViewer from "../visualization/SpacecraftViewer";
+import { buildSpacecraftVisualModel } from "../visualization/buildSpacecraftVisualModel";
+import { visualCatalog } from "../visualization/catalog";
+import type { SpacecraftInspectionProps } from "./SpacecraftPreview";
+
+/**
+ * Wiring from docs/HANDOFF_3D.md: converts the selected component IDs into the
+ * presentation model and hands it to the viewer. No renderer, physics or
+ * mission state lives here.
+ */
+export default function FableViewerBridge({
+  selectedComponentIds,
+  onInspectComponent,
+}: SpacecraftInspectionProps) {
+  const model = useMemo(
+    () => buildSpacecraftVisualModel(selectedComponentIds, visualCatalog, components),
+    [selectedComponentIds],
+  );
+  return <SpacecraftViewer model={model} onInspectComponent={onInspectComponent} />;
+}
