@@ -19,7 +19,7 @@ afterEach(() => { cleanup(); vi.clearAllTimers(); vi.useRealTimers(); vi.restore
 
 describe("scenario controls", () => {
   it.each(scenarioIds)("launches %s with the actual engine scenario and displays its limits", (id) => {
-    const run = vi.spyOn(game, "runMission");
+    const run = vi.spyOn(game, "replayMission");
     render(<App />);
     expect(screen.getAllByRole("option")).toHaveLength(4);
     scenarioSelect(id);
@@ -35,6 +35,7 @@ describe("scenario controls", () => {
     click(/Launch simulation/);
     act(() => vi.advanceTimersByTime(450));
     expect(run).toHaveBeenCalledExactlyOnceWith(defaultMission, 2026, id);
+    click(/Finish remaining simulation/);
     expect(screen.getByText(`Target ${scenario.targetMB} MB`)).toBeTruthy();
   });
 
@@ -66,12 +67,13 @@ describe("scenario controls", () => {
   });
 
   it("invalidates debrief on scenario change and cancels a pending launch", () => {
-    const run = vi.spyOn(game, "runMission");
+    const run = vi.spyOn(game, "replayMission");
     render(<App />);
     click(/Begin engineering/);
     click(/Review engineering/);
     click(/Launch simulation/);
     act(() => vi.advanceTimersByTime(450));
+    click(/Finish remaining simulation/);
     expect(debriefButton().disabled).toBe(false);
     scenarioSelect("endurance");
     expect(debriefButton().disabled).toBe(true);
@@ -94,8 +96,9 @@ describe("scenario controls", () => {
     click(/Launch simulation/);
     act(() => vi.advanceTimersByTime(450));
     expect(screen.getByText("Battery energy remaining")).toBeTruthy();
+    click(/Finish remaining simulation/);
     expect(screen.getByText("Steps with power deficit")).toBeTruthy();
-    expect(screen.getAllByText(/Sample order \(not a uniform time scale\)/)).toHaveLength(2);
+    expect(screen.getByText(/Reporting intervals up to 60 seconds/)).toBeTruthy();
     click(/Start new mission/);
     expect((screen.getByLabelText("Training scenario") as HTMLSelectElement).value).toBe("survey");
   });

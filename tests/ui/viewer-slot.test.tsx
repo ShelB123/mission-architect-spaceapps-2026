@@ -15,7 +15,7 @@ const click = (name: RegExp) => fireEvent.click(screen.getByRole("button", { nam
 function InspectionHarness({ selectedComponentIds, onInspectComponent }: SpacecraftInspectionProps) {
   return <button onClick={() => onInspectComponent?.(selectedComponentIds[0])}>Inspect test component</button>;
 }
-const openPreview = async () => { await act(async () => click(/Show 3D preview/)); };
+const openPreview = async () => { await act(async () => { const button = screen.queryByRole("button", { name: /Show 3D preview/ }); if (button) fireEvent.click(button); }); };
 
 describe("optional viewer integration host", () => {
   it("keeps the component list and complete game available without a renderer", () => {
@@ -27,6 +27,7 @@ describe("optional viewer integration host", () => {
     click(/Review engineering/);
     click(/Launch simulation/);
     act(() => vi.advanceTimersByTime(450));
+    click(/Finish remaining simulation/);
     expect(screen.getByText("MISSION SCORE")).toBeTruthy();
   });
 
@@ -111,7 +112,7 @@ describe("optional viewer integration host", () => {
   it("inspection never runs the engine or changes the subsequent mission result", async () => {
     vi.useFakeTimers();
     const baseline = game.runMission(defaultMission, 2026, "survey");
-    const run = vi.spyOn(game, "runMission");
+    const run = vi.spyOn(game, "replayMission");
     render(<App loadSpacecraftViewer={async () => ({ default: InspectionHarness })} />);
     click(/Begin engineering/);
     await openPreview();
@@ -122,6 +123,6 @@ describe("optional viewer integration host", () => {
     click(/Launch simulation/);
     act(() => vi.advanceTimersByTime(450));
     expect(run).toHaveBeenCalledExactlyOnceWith(defaultMission, 2026, "survey");
-    expect(run.mock.results[0].value).toEqual(baseline);
+    expect(run.mock.results[0].value.result).toEqual(baseline);
   });
 });

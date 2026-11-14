@@ -1,171 +1,161 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { categoryOrder, components, launchers } from "./data/catalog";
 import { computeOrbitProfile } from "./engine/orbit";
 import { missionScenarios, type MissionScenarioId } from "./engine/game";
 import { assessScenarioDesign } from "./ui/assessScenarioDesign";
 import { useMissionSession } from "./ui/useMissionSession";
 import { SpacecraftPreview, type SpacecraftInspectionLoader } from "./ui/SpacecraftPreview";
-import type { ComponentCategory, MissionPhase } from "./types/contracts";
+import { MissionOrbit } from "./ui/MissionOrbit";
+import { challenges, challengeStart } from "./ui/challenges";
+import type { ComponentCategory, MissionPhase, SpaceComponent } from "./types/contracts";
 
 const steps: { phase: MissionPhase; label: string }[] = [
-  { phase: "briefing", label: "Briefing" },
-  { phase: "design", label: "Design" },
-  { phase: "review", label: "Review" },
-  { phase: "operations", label: "Operations" },
-  { phase: "debrief", label: "Debrief" },
+  { phase: "briefing", label: "Briefing" }, { phase: "design", label: "Design" },
+  { phase: "review", label: "Review" }, { phase: "operations", label: "Operations" }, { phase: "debrief", label: "Debrief" },
 ];
-const categoryLabels: Record<ComponentCategory, string> = {
-  payload: "Scientific payload",
-  solar: "Solar power",
-  battery: "Energy storage",
-  communications: "Communications",
+const categories: Record<ComponentCategory, { label: string; glyph: string }> = {
+  payload: { label: "Camera", glyph: "◉" }, solar: { label: "Solar array", glyph: "☀" },
+  battery: { label: "Battery", glyph: "▥" }, communications: { label: "Radio", glyph: "⌁" },
 };
-
-function MiniChart({ data, max, unit }: { data: number[]; max: number; unit: string }) {
-  const sample = data.length > 100 ? data.filter((_, i) => i % Math.ceil(data.length / 100) === 0 || i === data.length - 1) : data;
-  const points = sample.map((n, i) => `${(i / Math.max(1, sample.length - 1)) * 600},${130 - (n / Math.max(1, max)) * 122}`).join(" ");
-  return (
-    <div className="mini-chart">
-      <svg viewBox="0 0 600 140" role="img" aria-label={`Simulated history of ${unit}`} preserveAspectRatio="none">
-        <line x1="0" y1="130" x2="600" y2="130" stroke="#477392" strokeDasharray="4 6" />
-        <line x1="0" y1="70" x2="600" y2="70" stroke="#477392" strokeDasharray="4 6" opacity=".5" />
-        <polyline points={points} fill="none" stroke="#59cde1" strokeWidth="2.8" vectorEffect="non-scaling-stroke" />
-      </svg>
-      <small>0–{max.toFixed(0)} {unit} · Sample order (not a uniform time scale) →</small>
-    </div>
-  );
+const signed = (n: number) => `${n > 0 ? "+" : ""}${Number(n.toFixed(1))}`;
+function Meter({ title, value, caption, ratio = 0, warn = false }: { title: string; value: string; caption: string; ratio?: number; warn?: boolean }) {
+  return <div className={`hud-meter ${warn ? "warn" : ""}`}><div className="meter-label">{title}<span>{value}</span></div><div className="meter-track"><i style={{ width: `${Math.max(0, Math.min(100, ratio * 100))}%` }}/></div><small>{caption}</small></div>;
 }
-
-function Stat({ title, value, sub, warn = false }: { title: string; value: string; sub: string; warn?: boolean }) {
-  return <div className={`stat ${warn ? "stat-warn" : ""}`}><small>{title}</small><strong>{value}</strong><span>{sub}</span></div>;
+function capability(c: SpaceComponent) {
+  if (c.category === "payload") return `${c.scienceMBperMinute} MB/min`;
+  if (c.category === "solar") return `${c.solarGenerationW} W generation`;
+  if (c.category === "battery") return `${c.batteryCapacityWh} Wh reserve`;
+  return `${c.downlinkMBperMinute} MB/min`;
 }
-
-export interface AppProps {
-  readonly loadSpacecraftViewer?: SpacecraftInspectionLoader;
+function capabilityDelta(next: SpaceComponent, prior: SpaceComponent) {
+  if (next.category === "payload") return `${signed((next.scienceMBperMinute ?? 0)-(prior.scienceMBperMinute ?? 0))} MB/min acquisition`;
+  if (next.category === "solar") return `${signed((next.solarGenerationW ?? 0)-(prior.solarGenerationW ?? 0))} W generation`;
+  if (next.category === "battery") return `${signed((next.batteryCapacityWh ?? 0)-(prior.batteryCapacityWh ?? 0))} Wh reserve`;
+  return `${signed((next.downlinkMBperMinute ?? 0)-(prior.downlinkMBperMinute ?? 0))} MB/min downlink`;
 }
-
-function App({ loadSpacecraftViewer }: AppProps = {}) {
-  const { mission, scenarioId, selectScenario, phase, result, error, updateMission, navigate, launch, reset, improveDesign } = useMissionSession();
-  const scenario = missionScenarios[scenarioId];
+export interface AppProps { readonly loadSpacecraftViewer?: SpacecraftInspectionLoader }
+export default function App({ loadSpacecraftViewer }: AppProps = {}) {
+  const session = useMissionSession();
+  const { mission, scenarioId, selectScenario, seed, changeSeed, phase, result, replay, frame, cursor, duration, paused, setPaused,
+    speed, setSpeed, previousAttempt, error, updateMission, navigate, launch, reset, improveDesign, commandCamera, finish } = session;
+  const [inspected, setInspected] = useState("camera-basic");
+  const [hintLevel, setHintLevel] = useState(0);
+  const [help, setHelp] = useState(false);
+  const helpPanel = useRef<HTMLDivElement>(null);
+  const [lastChange, setLastChange] = useState<{ from: SpaceComponent; to: string } | null>(null);
+  useEffect(() => {
+    if (!help) return;
+    const origin = document.activeElement as HTMLElement | null;
+    const panel = helpPanel.current;
+    const buttons = panel?.querySelectorAll<HTMLButtonElement>("button");
+    buttons?.[0]?.focus();
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") { event.preventDefault(); setHelp(false); }
+      if (event.key === "Tab" && buttons?.length) {
+        const first = buttons[0], last = buttons[buttons.length - 1];
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+      }
+    };
+    panel?.addEventListener("keydown", onKey);
+    return () => { panel?.removeEventListener("keydown", onKey); origin?.focus(); };
+  }, [help]);
+  const scenario = missionScenarios[scenarioId], challenge = challenges[scenarioId];
   const design = useMemo(() => assessScenarioDesign(mission, scenarioId), [mission, scenarioId]);
-  const orbit = useMemo(() => computeOrbitProfile({ altitudeKm: mission.altitudeKm }), [mission.altitudeKm]);
-  const activeStep = steps.findIndex((s) => s.phase === phase);
-
+  const orbit = useMemo(() => computeOrbitProfile(mission), [mission.altitudeKm]);
+  const highlighted = components.find(c => c.id === inspected) ?? components[0];
+  const equipped = components.find(c => c.category === highlighted.category && mission.selectedComponentIds.includes(c.id)) ?? highlighted;
+  const justChanged = mission.selectedComponentIds.includes(highlighted.id) && lastChange?.to === highlighted.id;
+  const deltaBase = justChanged && lastChange ? lastChange.from : equipped;
+  const telemetry = phase === "operations" ? frame : phase === "debrief" ? replay?.frames.at(-1) : undefined;
+  const returned = telemetry?.transmittedMB ?? 0;
+  const energy = telemetry?.batteryWh ?? design.batteryCapacityWh;
+  const progress = returned / scenario.targetMB;
   function selectComponent(category: ComponentCategory, id: string) {
-    updateMission((prev) => {
-      const without = prev.selectedComponentIds.filter((itemId) => components.find((c) => c.id === itemId)?.category !== category);
-      return { ...prev, selectedComponentIds: [...without, id] };
-    });
+    if (equippedFor(category).id !== id) setLastChange({ from: equippedFor(category), to: id });
+    updateMission(prev => ({ ...prev, selectedComponentIds: [...prev.selectedComponentIds.filter(item => components.find(c => c.id === item)?.category !== category), id] }));
+    setInspected(id);
   }
+  const eventText = !frame ? "Preparing telemetry…" : frame.stationOffline ? "Ground station unavailable. Data remain on board." : frame.calibration ? "Camera calibration. Acquisition temporarily paused." : !frame.cameraOn ? "Camera off. Saving power; no new observations." : frame.batteryWh === 0 ? "Energy reserve depleted. Operations may be interrupted." : frame.eclipse ? "In Earth's shadow. Running on the battery." : frame.contact ? "Contact window. Returning observations to Earth." : "Sunlit flight. Observing Earth; watch the energy balance.";
 
-  return (
-    <div className="app-shell">
-      <header className="topbar">
-        <div className="brand"><span className="brand-icon">◈</span><div><strong>MISSION ARCHITECT</strong><small>SPACE APPS CHALLENGE 2026</small></div></div>
-        <span className="top-tag">ENGINEERING STRATEGY GAME <i>•</i> MVP 0.1</span>
-      </header>
-      <main className="main-content">
-        <section className="hero">
-          <div className="hero-copy"><span className="eyebrow">MISSION CONTROL / EARTH OBSERVATION</span><h1>Design the mission.<br /><em>Prove it works.</em></h1><p>Every spacecraft choice is a tradeoff. Engineer an Earth-observation satellite, balance your resources, and survive a simulated low Earth orbit mission.</p></div>
-          <div className="planet-visual" aria-hidden="true"><div className="planet"><span className="planet-glow" /></div><div className="orbit-ring" /><div className="satellite">✦</div><div className="space-label">LEO / {mission.altitudeKm} KM</div></div>
-        </section>
-        <nav className="stepper" aria-label="Mission progress">
-          {steps.map((step, index) => <button type="button" key={step.phase} className={index === activeStep ? "step active" : index < activeStep ? "step done" : "step"} onClick={() => {
-            if (step.phase !== "operations") navigate(step.phase);
-          }} disabled={index === 3 || (index === 4 && !result)}>
-            <span>{String(index + 1).padStart(2, "0")}</span>{step.label}</button>)}
-        </nav>
-        <section className="panel">
-          <div className="scenario-controls">
-            <label htmlFor="mission-scenario">Training scenario</label>
-            <select id="mission-scenario" value={scenarioId} onChange={(event) => selectScenario(event.target.value as MissionScenarioId)}>
-              {(Object.keys(missionScenarios) as MissionScenarioId[]).map((id) =>
-                <option key={id} value={id}>{missionScenarios[id].name}</option>)}
-            </select>
-            <p>{scenario.lesson}</p>
-            <small>Synthetic training settings · Target {scenario.targetMB} MB returned · Budget {scenario.budgetCredits} credits · Deadline {scenario.maxOrbits} orbits</small>
-          </div>
-          {phase === "briefing" && <>
-            <div className="section-header"><span className="eyebrow">01 / YOUR MISSION</span><h2>{scenario.name}</h2><p>Build a small Earth-observation spacecraft that acquires science imagery and transmits at least <strong>{scenario.targetMB} MB</strong> of data during a modeled {mission.durationOrbits}-orbit mission (scenario limit: {scenario.maxOrbits} orbits).</p></div>
-            <div className="objectives">
-              <div><span className="objective-symbol">◎</span><strong>Science return</strong><p>Downlink at least {scenario.targetMB} MB of imagery.</p></div>
-              <div><span className="objective-symbol">ϟ</span><strong>Power survival</strong><p>Keep spacecraft loads powered through sunlight and eclipse.</p></div>
-              <div><span className="objective-symbol">◫</span><strong>Design limits</strong><p>Stay within the launcher mass capacity and {scenario.budgetCredits} game-credit budget.</p></div>
-            </div>
-            <div className="note">This is an educational simulation. Hardware parameters and launch costs are fictional game values; orbital and eclipse geometry are deliberately simplified.</div>
-            <div className="actions"><button className="primary" onClick={() => navigate("design")}>Begin engineering →</button></div>
-          </>}
-          {phase === "design" && <>
-            <div className="section-header"><span className="eyebrow">02 / SPACECRAFT BUILDER</span><h2>Choose your spacecraft systems</h2><p>Each subsystem changes your budget, mass, energy balance or scientific output.</p></div>
-            <SpacecraftPreview selectedComponentIds={mission.selectedComponentIds} loadViewer={loadSpacecraftViewer} />
-            <div className="builder-layout">
-              <div className="choices">
-                {categoryOrder.map((category) => <div className="category" key={category}><h3>{categoryLabels[category]}</h3><div className="card-grid">
-                  {components.filter((c) => c.category === category).map((c) =>
-                    <button key={c.id} type="button" onClick={() => selectComponent(category, c.id)} className={`choice-card ${mission.selectedComponentIds.includes(c.id) ? "selected" : ""}`} aria-pressed={mission.selectedComponentIds.includes(c.id)}>
-                      <span className="choice-heading">{c.name} {mission.selectedComponentIds.includes(c.id) && <span className="check">✓</span>}</span><span className="choice-description">{c.description}</span>
-                      <span className="choice-meta">{c.massKg} kg · {c.costCredits} credits · {c.nominalPowerW} W load</span>
-                    </button>)}
-                </div></div>)}
-                <div className="category"><h3>Launch strategy</h3><div className="card-grid">{launchers.map((l) => <button type="button" key={l.id} aria-pressed={mission.launcherId === l.id} onClick={() => updateMission((m) => ({ ...m, launcherId: l.id }))} className={`choice-card ${mission.launcherId === l.id ? "selected" : ""}`}><span className="choice-heading">{l.name}</span><span className="choice-meta">Capacity {l.massLimitKg} kg · {l.costCredits} credits</span></button>)}</div></div>
-              </div>
-              <aside className="builder-aside">
-                <h3>MISSION PARAMETERS</h3>
-                <label className="range-label" htmlFor="altitude">Orbit altitude <strong>{mission.altitudeKm} km</strong></label>
-                <input id="altitude" type="range" min="250" max="1000" step="50" value={mission.altitudeKm} onChange={(e) => updateMission((m) => ({ ...m, altitudeKm: Number(e.target.value) }))}/>
-                <label className="range-label" htmlFor="duration">Mission duration <strong>{mission.durationOrbits} orbits</strong></label>
-                <input id="duration" type="range" min="1" max="30" step="1" value={mission.durationOrbits} onChange={(e) => updateMission((m) => ({ ...m, durationOrbits: Number(e.target.value) }))}/>
-                <p className="aside-note">Scenario deadline: {scenario.maxOrbits} orbits. Longer designs cannot launch.</p>
-                <p className="aside-note">Initial component specifications are synthetic, not manufacturer or NASA performance claims.</p>
-                <hr />
-                <Stat title="Total spacecraft mass" value={`${design.totalMassKg.toFixed(1)} kg`} sub={`Maximum ${design.massLimitKg} kg`} warn={design.totalMassKg > design.massLimitKg}/>
-                <Stat title="Mission budget" value={`${design.totalCostCredits} credits`} sub={`Maximum ${design.budgetLimitCredits}`} warn={design.totalCostCredits > design.budgetLimitCredits}/>
-                <Stat title="Generation / load" value={`${design.solarGenerationW} / ${design.nominalPowerW} W`} sub="In illuminated operations" />
-                <Stat title="Battery capacity" value={`${design.batteryCapacityWh} Wh`} sub="Nominal battery capacity" />
-              </aside>
-            </div>
-            <div className="actions"><button className="ghost" onClick={() => navigate("briefing")}>← Back</button><button className="primary" onClick={() => navigate("review")}>Review engineering →</button></div>
-          </>}
-          {phase === "review" && <>
-            <div className="section-header"><span className="eyebrow">03 / ENGINEERING REVIEW</span><h2>{design.violations.length ? "Design requires revisions" : "Ready for mission operations"}</h2><p>{scenario.name}: verify spacecraft constraints, scenario limits and orbital assumptions.</p></div>
-            <div className="stats-row">
-              <Stat title="Orbital period" value={`${(orbit.periodSeconds / 60).toFixed(1)} min`} sub="Circular two-body orbit"/>
-              <Stat title="Estimated eclipse" value={`${(orbit.eclipseFraction * 100).toFixed(1)}%`} sub="Assumes solar beta angle 0°"/>
-              <Stat title="Total launch mass" value={`${design.totalMassKg} kg`} sub={`Limit ${design.massLimitKg} kg`} warn={design.totalMassKg > design.massLimitKg}/>
-              <Stat title="Total mission cost" value={`${design.totalCostCredits}`} sub={`Limit ${design.budgetLimitCredits} credits`} warn={design.totalCostCredits > design.budgetLimitCredits}/>
-            </div>
-            <div className="stats-row">
-              <Stat title="Science return target" value={`${scenario.targetMB} MB`} sub="Data downlinked, not merely acquired" />
-              <Stat title="Planned duration" value={`${mission.durationOrbits} orbits`} sub={`Maximum ${scenario.maxOrbits} orbits`} warn={mission.durationOrbits > scenario.maxOrbits} />
-            </div>
-            <div className="review-box"><h3>Engineering findings</h3>
-              {design.violations.length === 0 && <p className="positive">✓ All hard design constraints passed.</p>}
-              {design.violations.map((v) => <p className="negative" key={v}>✕ {v}</p>)}
-              {design.warnings.map((v) => <p className="caution" key={v}>! {v}</p>)}
-            </div>
-            <div className="note">Eclipse: maximum-eclipse idealization. Ground contact: fictional window. These outputs cannot be used for actual mission planning.</div>
-            <div className="actions"><button className="ghost" onClick={() => navigate("design")}>← Modify spacecraft</button><button className="primary" disabled={design.violations.length > 0} onClick={launch}>Launch simulation →</button></div>
-          </>}
-          {phase === "operations" && <div className="loading"><div className="loading-orbit">✦</div><h2>Simulating orbital operations</h2><p>Computing illumination, resource consumption, science acquisition, and communication windows.</p><button type="button" className="ghost" onClick={() => navigate("review")}>Cancel launch</button></div>}
-          {phase === "debrief" && result && <>
-            <div className="section-header"><span className="eyebrow">05 / MISSION DEBRIEF</span><h2>{result.success ? "Mission accomplished" : "Mission needs improvement"}</h2><p>{scenario.name}: your engineering decisions produced these modeled outcomes.</p></div>
-            <div className="result-status"><div><span className="eyebrow">MISSION SCORE</span><strong>{result.score}<small>/ 100</small></strong></div><span className={result.success ? "success-pill" : "failure-pill"}>{result.success ? "OBJECTIVES MET" : "OBJECTIVES NOT MET"}</span></div>
-            <div className="stats-row">
-              <Stat title="Science returned" value={`${result.transmittedMB.toFixed(1)} MB`} sub={`Target ${result.targetMB} MB`}/>
-              <Stat title="Data produced" value={`${result.producedMB.toFixed(1)} MB`} sub="Payload observation data"/>
-              <Stat title="Steps with power deficit" value={String(result.energyOutageCount)} sub="Reporting intervals up to 60 seconds; not distinct failure events" warn={result.energyOutageCount > 0}/>
-              <Stat title="Science completion" value={`${(result.scienceCompletion * 100).toFixed(0)}%`} sub="Relative to science objective"/>
-            </div>
-            <div className="chart-grid"><div><h3>Battery energy remaining</h3><MiniChart data={result.batteryHistoryWh} max={Math.max(1, result.design.batteryCapacityWh)} unit="Wh" /></div><div><h3>Stored science data</h3><MiniChart data={result.dataHistoryMB} max={Math.max(1, ...result.dataHistoryMB)} unit="MB" /></div></div>
-            <div className="review-box"><h3>Engineering insights</h3>{result.explanations.map((line, i) => <p key={i}>{line}</p>)}</div>
-            <div className="actions"><button className="ghost" onClick={reset}>↺ Start new mission</button><button className="primary" onClick={improveDesign}>Improve design →</button></div>
-          </>}
-          {error && <p role="alert" className="negative">{error}</p>}
-        </section>
-        <footer><span>MISSION ARCHITECT · SPACE APPS 2026</span><span>AI-ASSISTED OPEN SOURCE PROTOTYPE · EDUCATIONAL MODELS</span></footer>
-      </main>
+  return <div className="cockpit">
+    <header className="command-header">
+      <a className="wordmark" href="#" onClick={e => { e.preventDefault(); navigate("briefing"); }}><span className="brand-mark">M<span>↗</span></span><span>MISSION<span>ARCHITECT</span></span></a>
+      <div className="header-center"><span className="status-dot"/> FLIGHT DESIGN LAB <span className="header-divider">/</span> EARTH OBSERVATION</div>
+      <div className="header-actions"><label className="scenario-select"><span className="sr-only">Training scenario</span><select value={scenarioId} onChange={e => { selectScenario(e.target.value as MissionScenarioId); setHintLevel(0); }}>{Object.entries(missionScenarios).map(([id,s]) => <option key={id} value={id}>{s.name}</option>)}</select></label><button className="icon-button" aria-label="Help and model assumptions" onClick={() => { if (phase === "operations") setPaused(true); setHelp(true); }}>?</button></div>
+    </header>
+    <nav className="phase-nav" aria-label="Mission progress">{steps.map((step,i) => <button key={step.phase} className={phase === step.phase ? "active" : ""} disabled={step.phase === "operations" || (step.phase === "debrief" && !result)} onClick={() => step.phase !== "operations" && navigate(step.phase)}><span>{String(i+1).padStart(2,"0")}</span>{step.label}{phase === step.phase && <i/>}</button>)}</nav>
+    <div className="hud" aria-label="Mission resources">
+      <Meter title="BUDGET" value={`${design.totalCostCredits} / ${design.budgetLimitCredits}`} caption="synthetic credits" ratio={design.totalCostCredits/design.budgetLimitCredits} warn={design.totalCostCredits > design.budgetLimitCredits}/>
+      <Meter title="LAUNCH MASS" value={`${design.totalMassKg} / ${design.massLimitKg} kg`} caption="spacecraft / launcher limit" ratio={design.totalMassKg/design.massLimitKg} warn={design.totalMassKg > design.massLimitKg}/>
+      <Meter title={telemetry ? "BATTERY" : "POWER"} value={telemetry ? `${energy.toFixed(1)} Wh` : `${design.solarGenerationW} / ${design.nominalPowerW} W`} caption={telemetry ? `${telemetry.generationW} W generation · ${telemetry.loadW} W load` : "sunlit generation / continuous load"} ratio={telemetry ? energy/design.batteryCapacityWh : design.nominalPowerW/design.solarGenerationW} warn={telemetry ? energy/design.batteryCapacityWh < .15 : design.solarGenerationW*orbit.sunlightFraction < design.nominalPowerW}/>
+      <Meter title="SCIENCE RETURN" value={`${returned.toFixed(0)} / ${scenario.targetMB} MB`} caption={telemetry ? "received on Earth" : "objective · data must reach Earth"} ratio={progress}/>
     </div>
-  );
-}
 
-export default App;
+    <main className={`game-area phase-${phase}`}>
+      {phase === "briefing" && <div className="briefing-layout">
+        <section className="briefing-art"><div className="eyebrow">YOUR NEXT MISSION / {challenge.number}</div><h1>Build it.<br/>Fly it.<br/><em>Make it work.</em></h1><MissionOrbit compact/><span className="art-caption">ONE SATELLITE. EVERY DECISION CONNECTED.</span></section>
+        <section className="briefing-content panel-scroll"><div className="eyebrow">SELECT YOUR CHALLENGE</div><div className="mission-cards">{(Object.keys(challenges) as MissionScenarioId[]).map(id => <button className={`mission-card ${id === scenarioId ? "selected" : ""}`} key={id} aria-pressed={id === scenarioId} onClick={() => { selectScenario(id); setHintLevel(0); }}><span className="mission-number">{challenges[id].number}</span><div><small>{challenges[id].difficulty}</small><strong>{challenges[id].title}</strong><p>{challenges[id].hook}</p></div><span className="mission-arrow">↗</span></button>)}</div>
+          <div className="selected-brief"><h2>{scenario.name}</h2><p>{challenge.task}</p><small>Budget {scenario.budgetCredits} credits · Up to {scenario.maxOrbits} orbits · No power outages</small></div>
+          <div className="briefing-buttons"><button className="primary" onClick={() => navigate("design")}>Begin engineering <span>→</span></button><button className="secondary" onClick={() => { setLastChange(null); updateMission(() => challengeStart(scenarioId)); navigate("design"); }}>Try a repair challenge</button></div>
+        </section>
+      </div>}
+
+      {phase === "design" && <div className="design-grid">
+        <aside className="equipment-panel panel-scroll"><div className="eyebrow">01 / EQUIP</div><h2>Choose your spacecraft systems</h2>
+          {categoryOrder.map(category => <section className="equipment-group" key={category}><h3><span>{categories[category].glyph}</span>{categories[category].label}</h3><div className="equipment-options">{components.filter(c => c.category === category).map(c => <button key={c.id} className={`equipment-card ${mission.selectedComponentIds.includes(c.id) ? "selected" : ""}`} aria-pressed={mission.selectedComponentIds.includes(c.id)} onMouseEnter={() => setInspected(c.id)} onFocus={() => setInspected(c.id)} onClick={() => selectComponent(category,c.id)}><strong>{c.name}</strong><small>{capability(c)}</small><span>{mission.selectedComponentIds.includes(c.id) ? "EQUIPPED" : `${signed(c.costCredits-equippedFor(category).costCredits)} cr`}</span></button>)}</div></section>)}
+        </aside>
+        <section className="assembly-stage"><div className="stage-title"><span className="eyebrow">02 / ASSEMBLE</span><span className="tag">SYNTHETIC SMALLSAT</span></div>
+          <SpacecraftPreview selectedComponentIds={mission.selectedComponentIds} loadViewer={loadSpacecraftViewer} initiallyOpen={Boolean(loadSpacecraftViewer)} onInspectComponent={setInspected}/>
+          {!loadSpacecraftViewer && <div className="schematic-ship" aria-hidden="true"><span className="schematic-panel"/><span className="schematic-bus">◉</span><span className="schematic-panel"/></div>}
+          <div className="component-detail" aria-live="polite"><span className="eyebrow">{justChanged ? "CHANGE APPLIED · COMPARED WITH PREVIOUS PART" : mission.selectedComponentIds.includes(highlighted.id) ? "EQUIPPED COMPONENT" : "UPGRADE PREVIEW"}</span><strong>{highlighted.name}</strong><p>{highlighted.description}</p><div className="delta-row"><span>{capabilityDelta(highlighted,deltaBase)}</span><span>{signed(highlighted.costCredits-deltaBase.costCredits)} cr</span><span>{signed(highlighted.massKg-deltaBase.massKg)} kg</span><span>{signed(highlighted.nominalPowerW-deltaBase.nominalPowerW)} W load</span></div></div>
+        </section>
+        <aside className="plan-panel panel-scroll"><div className="eyebrow">03 / PLAN</div><h2>Flight plan</h2>
+          <label className="range-label" htmlFor="altitude">Orbit altitude <strong>{mission.altitudeKm} km</strong></label><input id="altitude" type="range" min="250" max="1000" step="50" value={mission.altitudeKm} onChange={e => updateMission(m => ({...m,altitudeKm:Number(e.target.value)}))}/>
+          <label className="range-label" htmlFor="duration">Mission duration <strong>{mission.durationOrbits} orbits</strong></label><input id="duration" type="range" min="1" max="30" step="1" value={mission.durationOrbits} onChange={e => updateMission(m => ({...m,durationOrbits:Number(e.target.value)}))}/>
+          <small>Deadline: {scenario.maxOrbits} orbits</small><h3 className="launcher-label">Launch strategy</h3>{launchers.map(l => <button className={`launcher-card ${l.id === mission.launcherId ? "selected" : ""}`} key={l.id} aria-pressed={l.id===mission.launcherId} onClick={() => updateMission(m=>({...m,launcherId:l.id}))}><strong>{l.name}</strong><small>{l.costCredits} cr · {l.massLimitKg} kg limit</small></button>)}
+          <div className="mini-readout"><span>Battery capacity</span><strong>{design.batteryCapacityWh} Wh</strong></div><div className="mini-readout"><span>Orbit period</span><strong>{(orbit.periodSeconds/60).toFixed(1)} min</strong></div>
+          <details><summary>Replay seed & model</summary><label className="seed-label">Replay seed<input type="number" min="0" max="4294967295" value={seed} onChange={e=>changeSeed(Number(e.target.value))}/></label><p>Identical design, seed and commands reproduce the outcome. Hardware values and contacts are synthetic.</p></details>
+        </aside>
+      </div>}
+
+      {phase === "review" && <div className="review-layout"><section className="review-orbit"><MissionOrbit/><div className="review-orbit-caption"><strong>{mission.altitudeKm} km</strong><span>{(orbit.periodSeconds/60).toFixed(1)} MIN / ORBIT</span></div></section><section className="review-panel panel-scroll"><div className="eyebrow">PRE-FLIGHT CHECK</div><h1>{design.violations.length ? "Resolve before launch." : "Ready for orbit."}</h1><h2>{design.violations.length ? "Design requires revisions" : "Ready for mission operations"}</h2><p>{challenge.task}</p>
+        <div className="checks"><div><span>Science return target</span><strong>{scenario.targetMB} MB</strong></div><div><span>Mission budget</span><strong>{design.totalCostCredits} credits</strong><small>Limit {scenario.budgetCredits} credits</small></div><div><span>Planned duration</span><strong>{mission.durationOrbits} orbits</strong><small>Maximum {scenario.maxOrbits} orbits</small></div></div>
+        {design.violations.map(v=><p className="violation" key={v}>× {v}</p>)}
+        {!design.violations.length && <p className="ready-message">✓ Hard constraints cleared. Your design still needs to survive the mission.</p>}
+        <details open={design.warnings.length > 0}><summary>Engineering hints ({design.warnings.length})</summary>{design.warnings.map(w=><p key={w}>{w}</p>)}</details>
+        <div className="control-tip"><span>⌁</span><p>During flight, turn the camera off to save energy. You can still transmit stored data, but you will stop making new observations.</p></div>
+      </section></div>}
+
+      {phase === "operations" && (!replay || !frame ? <div className="launching"><div className="launch-symbol">↗</div><h1>Simulating orbital operations</h1><p>Preparing your mission timeline…</p></div> : <div className="operations-grid">
+        <section className="flight-stage"><div className="flight-stage-top"><span className="eyebrow">MISSION CONTROL</span><span className="tag">{paused ? "PAUSED" : `${speed}× ACCELERATED`}</span></div><MissionOrbit frame={frame}/><div className="mission-clock"><strong>{(frame.timeSeconds/60).toFixed(1)}<small> MIN</small></strong><span>ORBIT {Math.min(mission.durationOrbits,Math.floor(frame.timeSeconds/orbit.periodSeconds)+1)} / {mission.durationOrbits}</span></div>
+          <div className="playback"><button className="secondary" onClick={()=>setPaused(!paused)}>{paused ? "Resume playback" : "Pause playback"}</button><label>Speed<select value={speed} onChange={e=>setSpeed(Number(e.target.value))}><option value={120}>120×</option><option value={600}>600×</option><option value={1800}>1800×</option></select></label><div className="time-progress" role="progressbar" aria-label="Mission elapsed time" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(cursor/duration*100)}><i style={{width:`${cursor/duration*100}%`}}/></div></div>
+        </section>
+        <aside className="flight-console panel-scroll"><div className="eyebrow">LIVE TELEMETRY</div><h2>{progress >= 1 ? "Data target reached." : "Bring the data home."}</h2><div className="science-count">{frame.transmittedMB.toFixed(1)}<small> / {scenario.targetMB} MB</small></div><div className="mini-readout"><span>Data produced</span><strong>{frame.producedMB.toFixed(1)} MB</strong></div><div className="mini-readout"><span>Waiting onboard</span><strong>{frame.storedMB.toFixed(1)} MB</strong></div><div className="mini-readout"><span>Battery energy remaining</span><strong>{frame.batteryWh.toFixed(1)} Wh</strong></div>
+          <div className="event-message" role="status"><span className="status-dot"/>{eventText}</div><h3>Camera command</h3><div className="mode-buttons"><button className={frame.cameraOn ? "selected" : ""} aria-pressed={frame.cameraOn} onClick={()=>commandCamera(true)}>Observe<small>Acquire data · full load</small></button><button className={!frame.cameraOn ? "selected" : ""} aria-pressed={!frame.cameraOn} onClick={()=>commandCamera(false)}>Save power<small>Camera off · radio stays on</small></button></div>
+          <small className="model-note">Commands act at the displayed simulation time. The model recalculates the remaining mission.</small><details><summary>Command log ({replay.commands.length})</summary>{replay.commands.length ? replay.commands.map(c=><p key={c.timeSeconds}>{(c.timeSeconds/60).toFixed(1)} min · camera {c.cameraOn ? "on" : "off"}</p>) : <p>No manual commands yet.</p>}</details>
+        </aside>
+      </div>)}
+
+      {phase === "debrief" && result && <div className="debrief-layout">
+        <section className={`outcome-stage ${result.success ? "won" : ""}`}><div className="eyebrow">MISSION DEBRIEF / {challenge.number}</div><div className="outcome-icon">{result.success ? "✓" : "↗"}</div><h1>{result.success ? "Mission accomplished" : "One more iteration."}</h1><p>{result.success ? "Your observations made it home. Your spacecraft stayed powered." : result.energyOutageCount ? "Your spacecraft could not keep every interval powered." : "Your spacecraft returned less data than the mission needs."}</p><div className="return-pill"><strong>{result.transmittedMB.toFixed(1)} MB</strong><span>Target {result.targetMB} MB</span></div><div className="score-line"><span>MISSION SCORE</span><strong>{result.score}<small>/100</small></strong></div></section>
+        <section className="debrief-panel panel-scroll"><div className="eyebrow">LEARN BY TRYING AGAIN</div><h2>{result.success ? "Can you do it with less?" : "Change one thing. Try again."}</h2>
+          <div className="mini-readout"><span>Data produced</span><strong>{result.producedMB.toFixed(1)} MB</strong></div><div className="mini-readout"><span>Steps with power deficit</span><strong>{result.energyOutageCount}</strong></div><small>Reporting intervals up to 60 seconds; not distinct failures.</small>
+          {previousAttempt ? <div className="comparison"><h3>Compared with your last attempt</h3><p>Same scenario and seed {seed}. Design, duration and commands may differ.</p><div><span>Data returned</span><strong>{signed(result.transmittedMB-previousAttempt.result.transmittedMB)} MB</strong></div><div><span>Mission cost</span><strong>{signed(result.design.totalCostCredits-previousAttempt.result.design.totalCostCredits)} cr</strong></div><div><span>Power-deficit intervals</span><strong>{signed(result.energyOutageCount-previousAttempt.result.energyOutageCount)}</strong></div></div> : <p className="empty-comparison">Your next attempt will be compared here. Keep the seed to test your engineering changes fairly.</p>}
+          <button className="secondary hint-button" onClick={()=>setHintLevel(v=>Math.min(v+1,2))}>{hintLevel ? "Show another hint" : "Give me a hint"}</button>{hintLevel>0 && <p className="hint">{challenge.hint}</p>}{hintLevel>1 && <p className="hint">{result.energyOutageCount ? "Compare solar generation across the whole orbit with continuous load. Battery capacity only bridges a temporary deficit." : result.producedMB < result.targetMB ? "Even a faster radio cannot send observations never acquired. Check camera rate, operating time and camera-off commands." : "You acquired enough data. Examine how much the radio can return during its contact windows."}</p>}
+          <details><summary>Full technical report</summary>{result.explanations.map((line,i)=><p key={i}>{line}</p>)}</details>
+        </section>
+      </div>}
+      {error && <div className="error-toast" role="alert">{error}</div>}
+    </main>
+    <footer className="action-bar"><span className="model-note">SYNTHETIC TRAINING · IDEALIZED PHYSICS <span className="footer-seed">/ SEED {seed}</span></span><div>
+      {phase === "design" && <><button className="secondary" onClick={()=>navigate("briefing")}>← Missions</button><button className="primary" onClick={()=>navigate("review")}>Review engineering →</button></>}
+      {phase === "review" && <><button className="secondary" onClick={()=>navigate("design")}>← Modify spacecraft</button><button className="primary" disabled={design.violations.length>0} onClick={launch}>Launch simulation ↗</button></>}
+      {phase === "operations" && <><button className="secondary" onClick={()=>navigate("review")}>Cancel launch</button><button className="primary" disabled={!replay} onClick={finish}>Finish remaining simulation →</button></>}
+      {phase === "debrief" && <><button className="secondary" onClick={reset}>Start new mission</button><button className="primary" onClick={()=>{setHintLevel(0);improveDesign();}}>Improve design →</button></>}
+      {phase === "briefing" && <span className="footer-note">DESIGN → FLY → DISCOVER → IMPROVE</span>}
+    </div></footer>
+    {help && <div ref={helpPanel} className="help-overlay" role="dialog" aria-modal="true" aria-label="How to play"><section><button className="icon-button close-help" onClick={()=>setHelp(false)} aria-label="Close help">×</button><div className="eyebrow">FLIGHT MANUAL</div><h2>A mission, not a perfect satellite.</h2><p>Choose a challenge. Equip your satellite. Review the limits, then watch it fly. Switch the camera off to conserve energy, or keep observing to build up data.</p><p>Only data received on Earth count. A large camera needs enough power and a radio that can deliver its observations.</p><p>All hardware, budgets and training events are synthetic. Orbit and contact geometry are idealized. MB measure quantity, not scientific quality. The 3D model is a schematic and never determines the physics.</p><p>No camera power savings are assumed during automatic calibration. A manual camera-off command removes its entire nominal load; bus and radio stay on.</p><button className="primary" onClick={()=>setHelp(false)}>Back to the mission</button></section></div>}
+  </div>;
+  function equippedFor(category: ComponentCategory) { return components.find(c=>c.category===category && mission.selectedComponentIds.includes(c.id))!; }
+}

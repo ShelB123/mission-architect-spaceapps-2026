@@ -21,11 +21,13 @@ class PreviewBoundary extends Component<
 }
 
 /** Application-owned host. No scene, WebGL context, visual catalog or physics. */
-export function SpacecraftPreview({ selectedComponentIds, loadViewer }: {
+export function SpacecraftPreview({ selectedComponentIds, loadViewer, onInspectComponent, initiallyOpen = false }: {
   readonly selectedComponentIds: readonly string[];
   readonly loadViewer?: SpacecraftInspectionLoader;
+  readonly onInspectComponent?: (id: string) => void;
+  readonly initiallyOpen?: boolean;
 }) {
-  const [enabled, setEnabled] = useState(false);
+  const [enabled, setEnabled] = useState(initiallyOpen);
   const [attempt, setAttempt] = useState(0);
   const [inspectedId, setInspectedId] = useState<string | null>(null);
   const selection = useMemo(() => Object.freeze([...selectedComponentIds]), [selectedComponentIds]);
@@ -38,7 +40,7 @@ export function SpacecraftPreview({ selectedComponentIds, loadViewer }: {
     ? components.find((component) => component.id === inspectedId) : undefined;
 
   return (
-    <section className="review-box" aria-label="Spacecraft preview">
+    <section className="review-box preview-host" aria-label="Spacecraft preview">
       <h3>Spacecraft inspection</h3>
       <ul aria-label="Selected spacecraft components">
         {selection.map((id, index) => <li key={`${id}:${index}`}>
@@ -55,7 +57,7 @@ export function SpacecraftPreview({ selectedComponentIds, loadViewer }: {
       }>
         <Suspense fallback={<p role="status">Loading spacecraft preview…</p>}>
           <Viewer selectedComponentIds={selection} onInspectComponent={(id) => {
-            if (selection.includes(id)) setInspectedId(id);
+            if (selection.includes(id)) { setInspectedId(id); onInspectComponent?.(id); }
           }} />
         </Suspense>
       </PreviewBoundary>}

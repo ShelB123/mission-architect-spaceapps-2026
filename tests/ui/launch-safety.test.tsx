@@ -15,6 +15,7 @@ function review() {
 function finishLaunch() {
   click(/Launch simulation/);
   act(() => vi.advanceTimersByTime(450));
+  click(/Finish remaining simulation/);
   expect(screen.getByText("MISSION SCORE")).toBeTruthy();
 }
 function debriefEnabled() {
@@ -56,7 +57,7 @@ describe("mission result freshness", () => {
 
 describe("launch lifetime", () => {
   it("cancels pending work when navigating and relaunches only the edited snapshot", () => {
-    const run = vi.spyOn(game, "runMission");
+    const run = vi.spyOn(game, "replayMission");
     render(<App />);
     review();
     click(/Launch simulation/);
@@ -73,7 +74,7 @@ describe("launch lifetime", () => {
   });
 
   it("ignores duplicate launch clicks before a render", () => {
-    const run = vi.spyOn(game, "runMission");
+    const run = vi.spyOn(game, "replayMission");
     render(<App />);
     review();
     const button = screen.getByRole("button", { name: /Launch simulation/ });
@@ -83,7 +84,7 @@ describe("launch lifetime", () => {
   });
 
   it("supports cancellation and retry without executing the canceled timer", () => {
-    const run = vi.spyOn(game, "runMission");
+    const run = vi.spyOn(game, "replayMission");
     render(<App />);
     review();
     click(/Launch simulation/);
@@ -96,7 +97,7 @@ describe("launch lifetime", () => {
   });
 
   it("clears pending work on unmount under StrictMode", () => {
-    const run = vi.spyOn(game, "runMission");
+    const run = vi.spyOn(game, "replayMission");
     const view = render(<StrictMode><App /></StrictMode>);
     review();
     click(/Launch simulation/);
@@ -112,7 +113,7 @@ describe("launch lifetime", () => {
 
 describe("simulation errors", () => {
   it.each([new Error("Injected engine failure"), "non-Error rejection"])("returns to Review and allows retry after %s", (failure) => {
-    const run = vi.spyOn(game, "runMission").mockImplementationOnce(() => { throw failure; });
+    const run = vi.spyOn(game, "replayMission").mockImplementationOnce(() => { throw failure; });
     render(<App />);
     review();
     click(/Launch simulation/);
@@ -129,7 +130,7 @@ describe("simulation errors", () => {
   });
 
   it("clears a previous error when editing a configuration", () => {
-    vi.spyOn(game, "runMission").mockImplementationOnce(() => { throw new Error("Try again"); });
+    vi.spyOn(game, "replayMission").mockImplementationOnce(() => { throw new Error("Try again"); });
     render(<App />);
     review();
     click(/Launch simulation/);
