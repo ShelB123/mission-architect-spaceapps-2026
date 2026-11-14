@@ -1,6 +1,6 @@
 # Physics assumptions and limitations
 
-Mission Architect models a single circular Earth orbit for educational trade studies. The UI allows 250–1,000 km and 2–12 revolutions. The orbit engine accepts 160–40,000 km. General engineering review accepts 1–30 integer revolutions, and a scenario can impose a lower limit. The equations below describe the engines in [main at 1476eb9](https://github.com/ShelB123/mission-architect-spaceapps-2026/commit/1476eb9236b8e6cfca9b8a04ce491ab69fa2f9d2).
+Mission Architect models a single circular Earth orbit for educational trade studies. The UI allows 250–1,000 km and 1–30 revolutions subject to the selected scenario’s deadline. The orbit engine accepts 160–40,000 km. General engineering review accepts 1–30 integer revolutions, and a scenario can impose a lower limit. The equations below describe the engines in [main at 8db3341](https://github.com/ShelB123/mission-architect-spaceapps-2026/commit/8db3341484c656265ec909a1c3aadfbabbfd42ed).
 
 ## Circular orbit and eclipse
 
@@ -29,7 +29,7 @@ During powered segments, the payload rate in MB/min is multiplied by `Δt/60`. T
 
 A 32-bit seed schedules one 10-minute payload calibration and one full orbit of ground-station unavailability. Both events keep nominal load on. Calibration pauses acquisition, and station unavailability pauses downlink. With the same seed, altitude and duration, different hardware choices receive the same schedule. All event timings and scenarios are game parameters.
 
-Histories retain full precision and sample at the end of reporting steps whose zero-based indices are multiples of five, plus the final step. They contain no timestamps. The UI charts use equal spacing by sample index and may downsample. The battery chart plots stored energy in Wh.
+Histories retain full precision and sample at the end of reporting steps whose zero-based indices are multiples of five, plus the final step. They contain no timestamps. The UI charts use equal spacing by sample index and may downsample. The battery chart plots stored energy in Wh. The separate orbit timeline adds time-tagged positions in a Sun-fixed orbital plane and analytic eclipse and contact intervals. The current browser has no orbital timeline view. [Orbit model](ORBIT_MODEL.md)
 
 ## Success and scoring
 

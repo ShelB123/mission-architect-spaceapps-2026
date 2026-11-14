@@ -12,7 +12,7 @@ In the demonstration, the high-resolution imager and 60 W solar array pass engin
 
 We used NASA's *Design and Develop Science Missions* to explain the relationships between the player’s launch, spacecraft, ground and user decisions. As a separate reference exercise, we enter the published TROPICS target altitude of 550 km into the existing orbit slider. The game estimates a 95.5-minute period and 37.2% eclipse at solar beta zero. The example uses altitude only. The app models one satellite with fictional hardware and contact timing.
 
-The prototype uses React, TypeScript, Vite, and Vitest. The browser presents the single-player Eyes on Earth mission with prelaunch choices and an automated operations phase. The TypeScript engine supports three additional scenarios. The 3D viewer is described in the design documentation for future integration.
+The prototype uses React, TypeScript, Vite, and Vitest. The browser presents four single-player training scenarios with prelaunch choices and automated operations. The renderer and host are in the repository. The production build currently exposes the component list in Design.
 
 ## Live walkthrough
 
@@ -21,7 +21,7 @@ The prototype uses React, TypeScript, Vite, and Vitest. The browser presents the
 3. Use **Improve design** from Debrief. Select only **Expanded Solar Array** and review 32 kg and 1,215 credits. Launch again. Show 294.3 MB returned, zero underpowered steps, and score 91. Point to seed 2026 and the two event lines in Debrief. At 450 km the 63 W load uses about 37.65 Wh through the modeled full eclipse. The 150 W array can refill the reserve during sunlight.
 4. Optional when the presentation format allows. Restart at Briefing and choose 550 km. In Review point to 95.5 min and 37.2%. Explain the TROPICS target altitude and the idealized circular model. Use the 450 km solar comparison for the main demonstration.
 
-The numbers above were measured in Chromium on the integrated game at `1476eb9`. Pin the demo link to that build when using these figures. Use **Improve design** or **Start new mission** after Debrief because changes through the stepper can expose an older result. [Browser evidence and comparison with the MVP](QA_ACCEPTANCE.md)
+The solar comparison above was measured in Chromium on the integrated game at `1476eb9`. Select **Eyes on Earth** before recording. The updated browser invalidates earlier results on mission edits and cancels pending launches. Use **Improve design** for the solar comparison and check the final deployment against the documented configuration and seed. [Browser evidence and comparison with the MVP](QA_ACCEPTANCE.md)
 
 ## 30-second narration
 
@@ -56,7 +56,7 @@ The repository establishes six work areas. Use the official team roster for the 
 | Architecture and integration | Scaffold, shared interface, project wiring, CI, and PR coordination | Initial scaffold by `ShelB123`'s project history. The architecture branch describes the integration sequence. |
 | Orbit | Circular radius, speed, period, and eclipse assumptions | `src/engine/orbit.ts` and `tests/orbit.test.ts`. |
 | Resources | Component selection, mass and budget, power and energy capacity | `src/engine/resources.ts` and `tests/resources.test.ts`. |
-| Interface | Builder controls, review, status and debrief charts | `src/App.tsx` and `src/styles.css`. PR #2 documents the proposed 3D surface. |
+| Interface | Builder controls, review, status and debrief charts | `src/App.tsx` and `src/styles.css`. PR #10 adds the preview host. PR #8 adds the renderer. The production loader is pending. |
 | Gameplay | Energy/data operations, objectives, scoring and feedback | `src/engine/game.ts`. Public commits by `nicomanuQP` in merged [PR #3](https://github.com/ShelB123/mission-architect-spaceapps-2026/pull/3) add seeded scenarios. |
 | Research, scientific QA and delivery | Source and rights ledger, physics assumptions, independent checks, and English demo | Files under `tests/acceptance` and the linked QA documents. |
 
