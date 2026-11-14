@@ -7,6 +7,7 @@ import {
   launchers,
 } from "../data/catalog";
 import type { DesignAssessment, MissionConfig, SpaceComponent } from "../types/contracts";
+import { computeOrbitProfile } from "./orbit";
 
 export function getSelectedComponents(config: MissionConfig): SpaceComponent[] {
   const selected = config.selectedComponentIds.map((id) => components.find((c) => c.id === id));
@@ -36,8 +37,29 @@ export function evaluateDesign(config: MissionConfig): DesignAssessment {
   }
   if (totalMassKg > launcher.massLimitKg) violations.push(`Launch mass exceeded by ${(totalMassKg - launcher.massLimitKg).toFixed(1)} kg.`);
   if (totalCostCredits > budgetLimitCredits) violations.push(`Budget exceeded by ${totalCostCredits - budgetLimitCredits} credits.`);
-  if (solarGenerationW <= nominalPowerW) warnings.push("Solar generation cannot cover nominal load during sunlight.");
-  if (batteryCapacityWh < nominalPowerW) warnings.push("Battery capacity is low relative to one hour of nominal demand.");
+  // Educational idealization: continuous nominal loads, ideal storage, and
+  // full rated panel output in sunlight. Orbital geometry comes from orbit.ts.
+  const orbit = computeOrbitProfile(config);
+  const averageGenerationW = solarGenerationW * orbit.sunlightFraction;
+  const eclipseDemandWh = nominalPowerW * orbit.periodSeconds * orbit.eclipseFraction / 3600;
+
+  if (solarGenerationW < nominalPowerW) {
+    warnings.push(`Daylight solar generation (${solarGenerationW.toFixed(2)} W) is below continuous nominal load (${nominalPowerW.toFixed(2)} W).`);
+  } else if (solarGenerationW === nominalPowerW) {
+    warnings.push("Daylight generation equals nominal load; no surplus remains to recharge after eclipse.");
+  }
+  if (averageGenerationW + 1e-9 < nominalPowerW) {
+    warnings.push(`Orbit-average solar generation (${averageGenerationW.toFixed(2)} W) is below nominal load (${nominalPowerW.toFixed(2)} W); batteries cannot sustain that deficit indefinitely.`);
+  }
+  if (batteryCapacityWh + 1e-9 < eclipseDemandWh) {
+    warnings.push(`Full-eclipse energy demand (${eclipseDemandWh.toFixed(2)} Wh) exceeds battery capacity (${batteryCapacityWh.toFixed(2)} Wh) at continuous nominal load.`);
+  }
+
+  const payloadRate = selected.find((c) => c.category === "payload")?.scienceMBperMinute ?? 0;
+  const radioRate = selected.find((c) => c.category === "communications")?.downlinkMBperMinute ?? 0;
+  if (payloadRate > 0 && radioRate <= payloadRate) {
+    warnings.push(`Radio peak downlink (${radioRate.toFixed(2)} MB/min) does not exceed payload production (${payloadRate.toFixed(2)} MB/min); intermittent contact further limits returned data.`);
+  }
   if (config.durationOrbits < 1 || config.durationOrbits > 30 || !Number.isInteger(config.durationOrbits)) {
     violations.push("Mission duration must be an integer between 1 and 30 orbits.");
   }
