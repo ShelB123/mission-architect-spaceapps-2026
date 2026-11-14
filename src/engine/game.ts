@@ -48,10 +48,11 @@ function scheduleEvents(random: () => number, periodSeconds: number, orbits: num
   const calibrationOrbit = Math.floor(random() * orbits);
   const calibrationStart = (calibrationOrbit + 0.05 + 0.1 * random()) * periodSeconds;
   const stationOrbit = Math.floor(random() * orbits);
-  return [
+  const events: TrainingEvent[] = [
     { kind: "calibration", startSeconds: calibrationStart, endSeconds: calibrationStart + 600 },
     { kind: "station-offline", startSeconds: stationOrbit * periodSeconds, endSeconds: (stationOrbit + 1) * periodSeconds },
-  ].sort((a, b) => a.startSeconds - b.startSeconds);
+  ];
+  return events.sort((a, b) => a.startSeconds - b.startSeconds);
 }
 
 /**
