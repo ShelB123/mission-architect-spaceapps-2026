@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { defaultMission } from "../data/catalog";
-import { runMission } from "../engine/game";
+import { missionScenarios, runMission, type MissionScenarioId } from "../engine/game";
 import type { MissionConfig, MissionPhase, MissionResult } from "../types/contracts";
 
 function initialMission(): MissionConfig {
@@ -10,6 +10,7 @@ function initialMission(): MissionConfig {
 /** Owns launch lifetime and result freshness; engineering remains in the engines. */
 export function useMissionSession() {
   const [mission, setMission] = useState<MissionConfig>(initialMission);
+  const [scenarioId, setScenarioId] = useState<MissionScenarioId>("survey");
   const [phase, setPhase] = useState<MissionPhase>("briefing");
   const [result, setResult] = useState<MissionResult | null>(null);
   const [error, setError] = useState("");
@@ -26,12 +27,22 @@ export function useMissionSession() {
 
   useEffect(() => cancelPending, [cancelPending]);
 
-  function updateMission(update: (previous: MissionConfig) => MissionConfig) {
+  function invalidateResult() {
     cancelPending();
-    setMission(update);
     setResult(null);
     setError("");
     setPhase((previous) => previous === "operations" || previous === "debrief" ? "design" : previous);
+  }
+
+  function updateMission(update: (previous: MissionConfig) => MissionConfig) {
+    invalidateResult();
+    setMission(update);
+  }
+
+  function selectScenario(next: MissionScenarioId) {
+    if (!Object.prototype.hasOwnProperty.call(missionScenarios, next)) return;
+    invalidateResult();
+    setScenarioId(next);
   }
 
   function navigate(next: Exclude<MissionPhase, "operations">) {
@@ -46,6 +57,7 @@ export function useMissionSession() {
     if (timer.current !== null || phase !== "review") return;
     cancelPending();
     const launchGeneration = generation.current;
+    const launchedScenario = scenarioId;
     const snapshot = { ...mission, selectedComponentIds: [...mission.selectedComponentIds] };
     setResult(null);
     setError("");
@@ -54,7 +66,7 @@ export function useMissionSession() {
       timer.current = null;
       if (launchGeneration !== generation.current) return;
       try {
-        const next = runMission(snapshot, 2026);
+        const next = runMission(snapshot, 2026, launchedScenario);
         if (launchGeneration !== generation.current) return;
         setResult(next);
         setPhase("debrief");
@@ -70,6 +82,7 @@ export function useMissionSession() {
   function reset() {
     cancelPending();
     setMission(initialMission());
+    setScenarioId("survey");
     setResult(null);
     setError("");
     setPhase("briefing");
@@ -82,5 +95,5 @@ export function useMissionSession() {
     setPhase("design");
   }
 
-  return { mission, phase, result, error, updateMission, navigate, launch, reset, improveDesign };
+  return { mission, scenarioId, selectScenario, phase, result, error, updateMission, navigate, launch, reset, improveDesign };
 }
