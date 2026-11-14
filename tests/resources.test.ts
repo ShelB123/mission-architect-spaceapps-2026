@@ -153,11 +153,21 @@ describe("spacecraft resource accounting", () => {
       selectedComponentIds: ["camera-hd", "solar-advanced", "battery-advanced", "radio-advanced"],
       launcherId: "rideshare",
     };
-    const assessment = evaluateDesign(allAdvanced);
-    expect(assessment.violations.join(" ")).toMatch(/mass/i);
-    expect(assessment.violations.join(" ")).toMatch(/Budget/);
-    expect(runMission(allAdvanced).events).toEqual(["Engineering review failed."]);
-    expect(runMission(allAdvanced).batteryHistoryWh).toEqual([]);
+    // Synthetic all-advanced setup exceeds rideshare mass but not the global budget.
+    const tooHeavy = evaluateDesign(allAdvanced);
+    expect(tooHeavy.violations.join(" ")).toMatch(/mass/i);
+    expect(tooHeavy.violations.join(" ")).not.toMatch(/Budget/);
+    // The same spacecraft fits the dedicated launcher but exceeds the global budget.
+    const overBudget = { ...allAdvanced, launcherId: "dedicated" };
+    const tooExpensive = evaluateDesign(overBudget);
+    expect(tooExpensive.totalCostCredits).toBeGreaterThan(tooExpensive.budgetLimitCredits);
+    expect(tooExpensive.violations.join(" ")).toMatch(/Budget/);
+    expect(tooExpensive.violations.join(" ")).not.toMatch(/mass/i);
+    for (const invalid of [allAdvanced, overBudget]) {
+      const result = runMission(invalid);
+      expect(result.events).toEqual(["Engineering review failed."]);
+      expect(result.batteryHistoryWh).toEqual([]);
+    }
   });
 
   it("preserves ordering, caller immutability and synthetic provenance", () => {
