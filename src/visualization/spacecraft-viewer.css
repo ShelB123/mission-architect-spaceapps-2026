@@ -1,0 +1,317 @@
+/* Spacecraft inspection viewer. Component-scoped: every selector starts with .ma-viewer. */
+.ma-viewer {
+  --ma-viewer-accent: #59cde1;
+  --ma-viewer-highlight: #ffd166;
+  --ma-viewer-line: #29435b;
+  --ma-viewer-muted: #9bb5c9;
+  --ma-viewer-surface: #0c1a2b;
+  border: 1px solid var(--ma-viewer-line);
+  border-radius: 14px;
+  background: linear-gradient(180deg, #0f2033, #0a1626);
+  color: #f0f6ff;
+  padding: 18px;
+  container-type: inline-size;
+}
+
+.ma-viewer__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.ma-viewer__eyebrow {
+  color: #59d5d8;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+}
+
+.ma-viewer__title {
+  margin: 4px 0 0;
+  font-size: 18px;
+  letter-spacing: -0.01em;
+}
+
+.ma-viewer__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ma-viewer__button {
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid #36546f;
+  border-radius: 999px;
+  background: #112437;
+  color: #d6e6f5;
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.ma-viewer__button:hover:not(:disabled) {
+  border-color: var(--ma-viewer-accent);
+}
+
+.ma-viewer__button[aria-pressed="true"] {
+  border-color: var(--ma-viewer-accent);
+  background: #14384a;
+  color: #eafcff;
+}
+
+.ma-viewer__button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.ma-viewer__button--inline {
+  margin-left: 10px;
+  min-height: 30px;
+}
+
+.ma-viewer__body {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(220px, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+@container (max-width: 640px) {
+  .ma-viewer__body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.ma-viewer__stage-wrap {
+  position: relative;
+  min-width: 0;
+}
+
+.ma-viewer__stage {
+  position: relative;
+  height: clamp(280px, 46vh, 440px);
+  border: 1px solid var(--ma-viewer-line);
+  border-radius: 12px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 38%, #1b3f5e 0%, #0c1c2e 55%, #060f1b 100%);
+  touch-action: none;
+}
+
+.ma-viewer__stage--fallback {
+  height: auto;
+  min-height: 280px;
+  touch-action: auto;
+}
+
+.ma-viewer__stage:focus-visible,
+.ma-viewer__button:focus-visible,
+.ma-viewer__camera-button:focus-visible,
+.ma-viewer__item-button:focus-visible {
+  outline: 2px solid var(--ma-viewer-highlight);
+  outline-offset: 2px;
+}
+
+.ma-viewer__canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.ma-viewer__camera {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: grid;
+  grid-template-columns: repeat(2, 32px);
+  gap: 6px;
+}
+
+.ma-viewer__camera-button {
+  width: 32px;
+  height: 32px;
+  border: 1px solid #36546f;
+  border-radius: 8px;
+  background: #0b1a2bd9;
+  color: #d6e6f5;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.ma-viewer__camera-button:hover {
+  border-color: var(--ma-viewer-accent);
+  color: #ffffff;
+}
+
+.ma-viewer__camera-button:last-child {
+  grid-column: span 2;
+  width: 100%;
+}
+
+.ma-viewer__notice {
+  margin: 8px 2px 0;
+  color: var(--ma-viewer-muted);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+}
+
+.ma-viewer__panel {
+  min-width: 0;
+}
+
+.ma-viewer__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.ma-viewer__item-button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--ma-viewer-line);
+  border-radius: 10px;
+  background: var(--ma-viewer-surface);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ma-viewer__item-button:hover {
+  border-color: #4b7391;
+}
+
+.ma-viewer__item-button--active {
+  border-color: var(--ma-viewer-highlight);
+  background: #2a2412;
+}
+
+.ma-viewer__swatch {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  border: 1px solid #ffffff40;
+}
+
+.ma-viewer__item-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.ma-viewer__item-category {
+  color: #59d5d8;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.ma-viewer__item-name {
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.ma-viewer__item-meta,
+.ma-viewer__item-parts,
+.ma-viewer__hint,
+.ma-viewer__empty {
+  color: var(--ma-viewer-muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.ma-viewer__item-parts {
+  margin: 6px 2px 0;
+}
+
+.ma-viewer__hint {
+  margin: 12px 2px 0;
+}
+
+.ma-viewer__issues {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid #7a5a1d;
+  border-radius: 10px;
+  background: #2a2110;
+  color: #ffe2a8;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.ma-viewer__issues ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+
+.ma-viewer__issue-title {
+  font-weight: 700;
+}
+
+.ma-viewer__issues-note {
+  margin: 6px 0 0;
+  color: #d9c08c;
+  font-size: 11px;
+}
+
+.ma-viewer__fallback {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  height: 100%;
+}
+
+.ma-viewer__fallback-message {
+  margin: 0;
+  color: #d6e6f5;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.ma-viewer__blueprint {
+  width: 100%;
+  height: auto;
+  max-height: 380px;
+  background-image:
+    linear-gradient(#59cde114 1px, transparent 1px),
+    linear-gradient(90deg, #59cde114 1px, transparent 1px);
+  background-size: 22px 22px;
+  border-radius: 8px;
+}
+
+.ma-viewer__blueprint-part {
+  fill-opacity: 0.6;
+  stroke: #7fd8ee;
+  stroke-width: 1.4;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.ma-viewer__blueprint-part:not(.ma-viewer__blueprint-part--bus) {
+  cursor: pointer;
+}
+
+.ma-viewer__blueprint-part--bus {
+  fill-opacity: 0.28;
+}
+
+.ma-viewer__blueprint-part--internal {
+  stroke-dasharray: 5 4;
+}
+
+.ma-viewer__blueprint-part--highlighted {
+  fill-opacity: 0.9;
+  stroke: var(--ma-viewer-highlight);
+  stroke-width: 2.6;
+}
