@@ -1,47 +1,35 @@
-# Mission Architect — NASA Space Apps Challenge 2026
+# Mission Architect
 
-AI-assisted educational strategy game for the **Space Mission Design Game** challenge.
+An educational browser strategy game for the 2026 NASA Space Apps Challenge, Space Mission Design Game. Configure an Earth-observation satellite, pass engineering review, and compare how your design choices affect power and science return. The duration is adjustable, with six orbits selected by default.
 
-Design an Earth-observation satellite, trade off mass, power, budget and communications, simulate an idealized LEO mission, and receive explanations of the result.
+## Run the MVP
 
-## Quick start
-
-Requires Node.js 22+ and npm.
+The playable MVP entered `main` in [PR #1](https://github.com/ShelB123/mission-architect-spaceapps-2026/pull/1). From a checkout with `package.json`, use Node.js 22.12+ and npm.
 
 ```bash
 npm install
 npm run dev
 ```
 
-Use the URL printed by Vite (normally http://localhost:5173).
+Open the URL printed by Vite. To run the automated checks and compile the production bundle:
 
 ```bash
-npm run build
 npm test
+npm run build
 ```
 
-## Core features
+## Mission and model
 
-- Mission briefing → builder → engineering review → operations → debrief.
-- Select payload, solar array, battery, communications, launcher, altitude and duration.
-- Circular-orbit period and idealized eclipse estimates.
-- Stepwise sunlight/eclipse energy accounting and fictional downlink windows.
-- Science scoring, engineering explanations and data/energy graphs.
-- Reproducible outcomes and unit tests.
+The five phases are Briefing, Design, Review, Operations, and Debrief. Choose a payload, solar array, battery, radio, launch strategy, altitude, and mission duration. The model checks mass and budget, computes a circular orbit, simulates battery energy and data return, and explains the outcome.
 
-## Important limitations
+Hardware values, game credits, contact windows, and science targets are synthetic. NASA's mission design guide and SmallSat survey provide engineering context. The published TROPICS target altitude of 550 km provides a worked comparison with the game's 450 km default. [Source ledger](docs/SOURCES.md) · [Physics assumptions and limitations](docs/PHYSICS_ASSUMPTIONS.md)
 
-**This is an educational prototype, NOT a flight simulator.** Hardware masses, prices (fictional game credits), power, data rates, launcher limits, ground-contact timing, and science target are synthetic. No NASA component performance data is claimed. The model excludes drag, J2, pointing, thermal, true ground-station geometry and other flight dynamics.
+## QA and presentation
 
-Read [physics limitations](docs/PHYSICS_ASSUMPTIONS.md), [source provenance](docs/SOURCES.md), [project scope](docs/PROJECT_SPEC.md), and [AI collaboration instructions](AGENTS.md).
+- [Independent acceptance tests and browser checklist](docs/QA_ACCEPTANCE.md)
+- [Project-page copy, demo route and team roles](docs/DEMO_AND_SUBMISSION.md)
+- [QA design](docs/QA_DESIGN.md) and [implementation prompt](docs/QA_IMPLEMENTATION_PROMPT.md)
 
-## Six-person team roles
+The project uses six roles for integration, orbit, resources, interface, gameplay, and QA. Pull requests follow the ownership in [AGENTS.md](AGENTS.md).
 
-1. Architecture/integration; 2. orbital physics; 3. spacecraft resources;
-4. interface/UX; 5. game logic; 6. QA/research and delivery.
-
-Develop on feature branches and review changes via pull requests. Coordinate any shared contract changes.
-
-## AI disclosure
-
-Initial code and documentation were drafted with ChatGPT assistance. Human contributors must validate the implementation, sources and physics. This project is not endorsed by NASA.
+Team development used ChatGPT and Claude for AI-assisted coding. Codex assisted this QA contribution with source research, tests, and English documentation. The [submission notes](docs/DEMO_AND_SUBMISSION.md) track author and tool details that the team needs to confirm.
