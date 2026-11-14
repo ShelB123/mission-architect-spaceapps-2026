@@ -51,3 +51,29 @@ Complexity: medium (one engine module plus focused tests); default UI remains us
 
 ## Implementation prompt (Phase C)
 Work from commit 1092772980cb2ff526432e97037da5e23ba42bbc on a named feature branch. Read AGENTS.md and the shared contracts first. Implement the design above in src/engine/game.ts and tests/game.test.ts only; this new design document is the sole documentation addition. Preserve runMission(config, seed=1) and MissionResult. Add typed optional scenario selection without changing contracts.ts or App.tsx. Use pure deterministic seed-based event scheduling, scenario objectives and hard budget/duration constraints, causal explanations visible through existing explanations, bounded transparent scoring and conservative resource accounting with correct seconds/Wh/MB conversion. Keep orbital equations, component catalog and resource assessment untouched. Label all event timings/targets/costs as synthetic gameplay settings. Do not create placeholders or claim UI selectors exist. Add meaningful success/failure tests for each scenario and tests for seed replay, changed outcomes, valid energy/data bounds, integration compatibility and engineering decisions. Run npm test and npm run build; report exact results and blockers honestly. Deliver a draft PR against the MVP branch, explain its dependency on PR #1, and never merge or change main.
+
+## Run and integrate
+```sh
+git fetch origin
+git switch --track origin/feature/gameplay-seeded-scenarios
+npm install
+npm test
+npm run build
+npm run dev
+```
+If the branch already exists locally, use `git switch feature/gameplay-seeded-scenarios`.
+Focused acceptance: `npm test -- tests/game.test.ts`.
+Existing UI call remains `runMission(mission, 2026)`.
+UI-owner integration example: `runMission(mission, 2026, "rapid-science")`; use `missionScenarios` for displayed objectives. The UI review currently calls the generic resource assessment; scenario-specific constraints are enforced in runMission and must also be shown in review when a picker is added.
+
+### Reproducible demonstration fixtures
+At 450 km and seed 2026, all numbers below are outputs of this simplified model, not measured mission performance.
+
+| Scenario | Passing design (payload / solar / battery / radio; launcher) | Duration | Returned MB | Failure comparison and learning |
+| --- | --- | --- | --- | --- |
+| survey | basic / basic / basic / basic; rideshare | 6 | 294.335 | HD payload with basic solar/battery/radio and dedicated launch loses power: match energy supply to demand. |
+| budget-survey | basic / basic / basic / basic; rideshare | 6 | 294.335 | Upgrading only the radio costs 725 > 700 credits: increased capacity has a budget consequence. |
+| rapid-science | HD / advanced / basic / advanced; dedicated | 6 | 1177.341 | HD/basic/advanced/basic produces 2643.066 MB but returns 294.335 MB: acquisition is not delivery. |
+| endurance | basic / basic / basic / basic; rideshare | 12 | 647.538 | HD/basic/advanced/basic survives 6 orbits but loses power at 12: a larger battery does not guarantee sustainable operation. |
+
+IDs use camera-basic/camera-hd, solar-basic/solar-advanced, battery-basic/battery-advanced and radio-basic/radio-advanced. No configuration file or catalog changes are required.
