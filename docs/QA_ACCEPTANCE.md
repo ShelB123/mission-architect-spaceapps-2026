@@ -2,24 +2,44 @@
 
 Validation on 14 November 2026. The product revision is [main at 1476eb9](https://github.com/ShelB123/mission-architect-spaceapps-2026/commit/1476eb9236b8e6cfca9b8a04ce491ab69fa2f9d2), including PRs #2 (3D design documentation), #3 (gameplay), and #4 (resource diagnostics). The QA branch integrates that revision in [PR #5](https://github.com/ShelB123/mission-architect-spaceapps-2026/pull/5). The historical comparison uses [33bcf55](https://github.com/ShelB123/mission-architect-spaceapps-2026/commit/33bcf55d44d2eb5f76ec54459dcc73789649a1ca), the original MVP merge.
 
-## Reproduce the checks
+## Release regression at `8db3341`
+
+CI setup uses Node from `.nvmrc` and npm 12.2.2. Local validation used Node 24.22.1 with the same npm installer and lockfile.
 
 ```sh
-npm install --no-package-lock --no-audit --no-fund
+npm ci
 npm run build
 npm test
-git diff --check origin/main...HEAD
+git diff --check
 npm run preview -- --host 127.0.0.1
 ```
 
-Node 24.22.1, npm 11.9.0, Vitest 3.2.7, Vite 7.3.8. The reviewed tree has no lockfile. The build passed TypeScript checking and Vite bundling. All 85 tests passed across four files.
+The clean installation, production build and all 174 tests passed. The suite covers nine independent acceptance tests, 51 gameplay, 21 resources, 32 orbit, 26 launch/session and scenario UI tests, eight preview-host tests and 27 renderer tests.
 
-| Test file | Count | Verified |
-| --- | ---: | --- |
-| `tests/acceptance/mission.acceptance.test.ts` | 9 | Independent orbit/eclipses at 450 and 550 km, synthetic flags, isolated mass and budget rejection, data and energy bounds, deterministic replay, controlled solar upgrade |
-| `tests/game.test.ts` | 51 | All four scenarios, seed validation and repeatability, event effects, time-boundary integration, score, and resource invariants across catalog combinations |
-| `tests/resources.test.ts` | 21 | Engineering budgets, design validity, daylight and orbit-average generation, eclipse demand, and downlink diagnostics |
-| `tests/orbit.test.ts` | 4 | Circular orbit, altitude restrictions, and eclipse/contact functions |
+Chromium 153 exercised the four scenarios on the production bundle at `8db3341`. The previously stale debrief became inaccessible after changing altitude, duration, launcher, component or scenario. Returning to Design during the 450 ms delay and choosing **Cancel launch** both cancelled the pending run. A fresh 550 km launch returned 300.8 MB. The corrected chart labels identify stored energy and sample order. The injected-error UI test covers returning to Review after an exception.
+
+All fixtures below use 450 km and the browser's fixed seed 2026. Unspecified components and Shared Launch use the defaults.
+
+| Scenario | Winning configuration | Returned / target (MB) |
+| --- | --- | ---: |
+| Eyes on Earth | Defaults, six orbits | 294.3 / 250 |
+| Lean Survey | Defaults, six orbits | 294.3 / 250 |
+| Rapid Science Return | HD imager, expanded solar, compact battery, high-rate downlink, Dedicated Launch, six orbits | 1,177.3 / 1,000 |
+| Sustained Operations | Defaults, 12 orbits | 647.5 / 600 |
+
+Review blocked Lean Survey with the high-rate downlink at 725/700 credits. It blocked Rapid Science Return at seven orbits against a six-orbit deadline. Both were verified using browser controls.
+
+### Open findings
+
+| Owner | Evidence and impact |
+| --- | --- |
+| Integrator and viewer | The production entry point leaves the preview loader unset. The component list works. The locally connected viewer falls back after a failed scene download, but neither retry control starts a fresh download. [3D checks](QA_3D.md) |
+| Orbit | At 550 km, pass `0.5 - eclipseFraction / 2` from the returned orbit profile to `isInEclipse`. It reports sunlight at the exact ingress due to phase normalization rounding. The documented interval includes ingress. Gameplay samples interval midpoints, and this check established no impact on the measured demo. |
+| Integrator and team owner | The footer says open source and the reviewed tree has no project LICENSE file. Confirm the intended license and align the label. Rehearse on the actual demo device. |
+
+## Historical baseline and numerical comparison
+
+The following fixtures compare the original MVP and the product revision accepted in PR #5.
 
 The existing nine acceptance cases passed immediately after the merge. The refreshed checks use full-precision backlog (absolute tolerance of 10⁻⁸ MB), compare the ordinary browser call with explicit `survey`, and check that the upgraded craft ends with a full battery. The implementation retains the same engineering totals. The default design is 20 kg, 595 credits, 28 W load, 60 W sunlit generation and 110 Wh capacity. The 3 W deficit over the high-load design's first sunlit minute draws 0.05 Wh. End-of-run data residuals in the measured cases were below 10⁻⁸ MB.
 
@@ -47,16 +67,5 @@ Playwright 1.62.1 drove headless Chromium 153.0.8010.0 at 1440 × 1000 against t
 | Budget rejection | Keep those components and switch to Dedicated Launch. Review blocked launch at 1,460 versus 1,400 credits with 38 kg within the 55 kg limit. |
 | Solar comparison | Select HD and Dedicated Launch with other parts at default. Both designs passed review. Standard solar yielded 117.7 MB and 320 underpowered steps. From Debrief choose **Improve design**, select only Expanded Solar Array, and launch again. The second run yielded 294.3 MB and zero underpowered steps. The seed and event schedule were identical. |
 | Reset and reference altitude | **Start new mission** restored the briefing and default design. Advance the altitude slider twice from 450 to 550 km and review. The model displayed 95.5 min and 37.2% eclipse. A fresh 550 km run returned 300.8 MB. |
-
-## Defects and feature boundaries
-
-| Priority and owner | Status and evidence |
-| --- | --- |
-| P0, integrator and UI | Reproduced. Complete a default mission, return to Design through the stepper, and change altitude, duration, or launcher. In each case the previous Debrief remains available with the prior results. Invalidate the result when any mission input changes. |
-| P0, integrator and UI | Reproduced. Launch at 450 km and return to Design before the 450 ms timer finishes. Switch to 550 km. The timer opens Debrief showing a 550 km header and the old 294.3 MB result. A fresh 550 km launch gives 300.8 MB. Cancel or discard stale simulations. |
-| P1, integrator and UI | The plot titled “Battery capacity” shows stored energy in Wh. The footer calls the game open source. The inspected tree lacks a project LICENSE. Align labels with the model and the team's chosen license. |
-| P1, integrator and UI | Inspecting the error branch shows a caught simulation error leaves the app in Operations. The browser run used regular user inputs and did not inject a failure. Replay on the team's demo device also remains pending. |
-| Optional, integrator and gameplay/UI | The engine accepts three additional scenarios and caller-supplied seeds. A browser selector would need the scenario's budget and deadline reflected in Review as well as Operations. |
-| Optional, integrator and 3D/UI | PR #2 delivered the design. The renderer, App wiring and [3D checks](QA_3D.md) are pending. |
 
 The former failure-with-100 case was rerun in both revisions. At 550 km, two orbits, and seed 2026, the HD imager, standard solar, compact battery, high-rate radio and Dedicated Launch returned 490.0 MB with two affected steps and scored 100 in the MVP despite failing. The integrated result fails the data target with 240.7 MB, zero affected steps and score 88. The engine now caps a failed score at 99. Time steps now split at modeled transitions, with sub-interval power, science and contact checks verified by the gameplay tests.

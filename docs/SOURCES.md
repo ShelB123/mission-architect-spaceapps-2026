@@ -4,17 +4,17 @@ Reviewed 14 November 2026. The [game catalog](../src/data/catalog.ts) supplies t
 
 ## Challenge and use of NASA resources
 
-Reviewed against product revision [1476eb9](https://github.com/ShelB123/mission-architect-spaceapps-2026/commit/1476eb9236b8e6cfca9b8a04ce491ab69fa2f9d2). The [official challenge page](https://www.spaceappschallenge.org/2026/challenges/space-mission-design-game/) returned a gateway error during this review. The [Athlone local-event mirror](https://hackathlone.com/challenges/space-mission-design-game) reproduces the detailed challenge and links to the official page. [Ulaanbaatar's event listing](https://www.spaceappsulaanbaatar.com/challenges) identifies it as challenge 13. The matrix paraphrases the objective and potential considerations. Browser and engine evidence is in the [acceptance record](QA_ACCEPTANCE.md).
+Reviewed against product revision [8db3341](https://github.com/ShelB123/mission-architect-spaceapps-2026/commit/8db3341484c656265ec909a1c3aadfbabbfd42ed). The [official challenge page](https://www.spaceappschallenge.org/2026/challenges/space-mission-design-game/) returned a gateway error during this review. The [Athlone local-event mirror](https://hackathlone.com/challenges/space-mission-design-game) reproduces the detailed challenge and links to the official page. [Ulaanbaatar's event listing](https://www.spaceappsulaanbaatar.com/challenges) identifies it as challenge 13. The matrix paraphrases the objective and potential considerations. Browser and engine evidence is in the [acceptance record](QA_ACCEPTANCE.md).
 
 | Challenge objective or consideration | Status on the integrated build | Evidence and missing work |
 | --- | --- | --- |
 | Design and simulate an interactive mission | Implemented in the browser | Briefing, spacecraft and launch configuration, engineering review, simulated operations and outcome. Operations run automatically after launch. |
-| Set a scientific goal and make consequential engineering decisions | Implemented for one browser objective | Eyes on Earth asks the player to return 250 MB while staying powered. Hardware, launch option, altitude, and duration can be changed. Extra goals are available through the mission engine. |
+| Set a scientific goal and make consequential engineering decisions | Implemented for four browser scenarios | The player selects a predefined objective and can change hardware, launch option, altitude and duration. Review applies the chosen scenario’s budget and deadline. |
 | Manage mass, budget, energy, time and communications | Implemented at educational fidelity | Hard mass/budget limits and design warnings, battery bounds, and data return in scheduled contact. The simulated orbit is circular, and ground contacts are fictional. |
-| See how choices change results and repeat a design | Implemented with a UI defect | Debrief displays score, resource plots and causal guidance. The **Improve design** route was exercised. Some edits through the stepper can expose stale results, as documented in the acceptance record. |
+| See how choices change results and repeat a design | Implemented and retested | Debrief displays score, resource plots and causal guidance. Mission edits invalidate the previous result. Leaving Operations or cancelling the launch clears the pending run. |
 | Manage mission operations | Partially represented | The engine simulates acquisition, loss of power and contact. The player makes design decisions and observes the run. Live subsystem commands are outside this version. |
-| Optional scenarios, unexpected constraints and mission scoring | Implemented in the engine, partly exposed in the browser | Four scenarios and seeded training events. The browser uses Eyes on Earth with seed 2026 and shows events and the new score. Scenario and seed selectors are pending. |
-| Optional interactive spacecraft visualization | Design exists | PR #2 specifies an isolated schematic viewer. Renderer, controls and WebGL acceptance are pending. The existing browser has a decorative CSS illustration. |
+| Optional scenarios, unexpected constraints and mission scoring | Implemented in the browser | All four scenarios are selectable. Runs use a fixed seed of 2026 and show the resulting synthetic events and score in Debrief. |
+| Optional interactive spacecraft visualization | Renderer implemented, production wiring pending | The renderer and host are merged. The production entry point renders the accessible component list. See the [3D acceptance record](QA_3D.md) for locally connected tests and limitations. |
 | Optional multiplayer, save/share and leaderboards | Outside the current scope | One local player with repeatable runs. The brief presents these features as optional. |
 
 The organizing team asks award entrants to use and cite at least one NASA resource from their challenge’s Resources tab. The Athlone mirror lists the two guides below. NASA's mission design guide provides the framework used to explain the player flow in this contribution. NASA TROPICS provides the worked altitude input. The official listing and submission instructions should be checked during project submission.
@@ -48,7 +48,7 @@ Every row is a game parameter. All eight components and both launchers declare `
 | Mission budget and objective | 1,400 credits and 250 MB downlinked |
 | Default mission | 450 km, six revolutions, player-selectable |
 | Ground contact | Phase 0.78 through just before 0.96 on every orbit, from [orbit.ts](../src/engine/orbit.ts) |
-| Training scenarios and events | Synthetic objectives, budgets and deadlines. The merged gameplay engine schedules a ten-minute calibration and a one-orbit ground interruption for each valid run. The browser uses the survey scenario and seed 2026. |
+| Training scenarios and events | Synthetic objectives, budgets and deadlines. The merged gameplay engine schedules a ten-minute calibration and a one-orbit ground interruption for each valid run. The browser defaults to the survey scenario and runs each selected scenario with seed 2026. |
 
 Credits are dimensionless. The continuous power values describe the game's load assumption. The corresponding decimal data rates are about 0.173 and 0.640 Mbit/s for payload generation and 0.467 and 1.867 Mbit/s for delivery. Conversion uses `MB/min × 8 / 60`.
 
