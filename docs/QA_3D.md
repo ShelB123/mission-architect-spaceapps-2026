@@ -1,13 +1,16 @@
 # Spacecraft viewer acceptance
 
-The production build at `1476eb9` was exercised in Chromium without a renderer. PR #2 defines the architecture and interaction contract. See the [mission acceptance record](QA_ACCEPTANCE.md) for the tested 450 km, seed 2026 baseline and the exact browser environment.
+At `8db3341`, PR #8 (renderer) and PR #10 (preview host) are merged. The production entry point renders `<App />` without a viewer loader. Players see an accessible component list and can complete a mission. Production viewer activation remains an integrator change. [Wiring design](HANDOFF_3D.md)
 
-| When the viewer lands | Procedure and expected result | Status at `1476eb9` |
-| --- | --- | --- |
-| Visual mapping and provenance | Select each of the eight IDs and check card/scene agreement and the visible synthetic geometry label. Repeat with an unknown or missing mapping in a test harness and check the textual fallback. | Pending renderer and test harness |
-| Isolation from physics | Run the default and solar-upgrade cases with the same input and seed, first with the viewer hidden and then with it visible. Rotate, zoom and inspect parts before an explicit launch. Compare the complete `MissionResult`, including histories and events. Watch for an unwanted invocation or mutation during inspection. | Baseline recorded. Viewer comparison pending. |
-| Failure and fallback | Try missing WebGL, lazy import rejection, and WebGL context loss. Check that the accessible component list appears and the five-phase route still works. | Pending viewer integration |
-| Interaction and cleanup | Check keyboard focus, resizing, repeated mounts/unmounts and React StrictMode on the target browser. Record console and resource cleanup observations. | Pending viewer integration |
-| Result freshness | Repeat the [stepper edit and timer cases](QA_ACCEPTANCE.md#defects-and-feature-boundaries) after the integrator's UI fixes and again with the viewer active. The result always reflects the launched configuration. | Both defects reproduced in the baseline app |
+The QA browser configuration uses Chromium 153, software WebGL 2 (SwiftShader) and a local-only copy wired according to the handoff. Production hardware compatibility and performance still need a run on the demo device.
 
-Review new assets against the [source and rights ledger](SOURCES.md) before adding them to a public demo.
+| Check | Status and evidence |
+| --- | --- |
+| Render, controls and provenance | The locally wired preview loads on request. The Chromium run exercised keyboard rotation, zoom, schematic view, inspection, all eight part IDs and resizing. The panel identifies the geometry as synthetic. |
+| Isolation | The earlier candidate at `6c48b2a` plus renderer `ca15779` produced identical complete `MissionResult` values for two designs with and without viewer interactions. The browser wrapper recorded zero calls before launch and one per explicit launch. |
+| Unavailable or WebGL 1 only | On the locally wired `8db3341`, blocking WebGL 2 produced the schematic without a scene initialization error. Both fixtures completed a mission. |
+| Context loss | On the locally wired `8db3341`, a forced loss displayed the schematic. The old canvas was detached, and restoring its context left the fallback onscreen. **Try 3D again** mounted a new canvas and the mission completed. |
+| Failed scene download | On the locally wired `8db3341`, abort the first request for `SpacecraftScene-*.js` and permit subsequent requests. The fallback appears. **Try 3D again** and **Hide 3D preview** followed by reopening both stay on the fallback and the request count remains one. The mission still completed at 294.3 MB. Viewer owner to fix or clarify the recovery control. |
+| Visual acceptance | Repeat the current regression on the actual demo device after production wiring. Include a clean load, camera interaction, zoom, keyboard access, WebGL failure and three reopen cycles. The local scene chunk measured about 257 kB gzip. |
+
+See the [QA record](QA_ACCEPTANCE.md) for the tested mission configurations and [source ledger](SOURCES.md) for provenance.
