@@ -1,9 +1,9 @@
-import { useMemo, useState } from "react";
-import { budgetLimitCredits, categoryOrder, components, defaultMission, launchers, scienceTargetMB } from "./data/catalog";
+import { useMemo } from "react";
+import { budgetLimitCredits, categoryOrder, components, launchers, scienceTargetMB } from "./data/catalog";
 import { computeOrbitProfile } from "./engine/orbit";
 import { evaluateDesign } from "./engine/resources";
-import { runMission } from "./engine/game";
-import type { ComponentCategory, MissionConfig, MissionPhase, MissionResult } from "./types/contracts";
+import { useMissionSession } from "./ui/useMissionSession";
+import type { ComponentCategory, MissionPhase } from "./types/contracts";
 
 const steps: { phase: MissionPhase; label: string }[] = [
   { phase: "briefing", label: "Briefing" },
@@ -39,38 +39,16 @@ function Stat({ title, value, sub, warn = false }: { title: string; value: strin
 }
 
 function App() {
-  const [phase, setPhase] = useState<MissionPhase>("briefing");
-  const [mission, setMission] = useState<MissionConfig>({ ...defaultMission, selectedComponentIds: [...defaultMission.selectedComponentIds] });
-  const [result, setResult] = useState<MissionResult | null>(null);
-  const [error, setError] = useState("");
+  const { mission, phase, result, error, updateMission, navigate, launch, reset, improveDesign } = useMissionSession();
   const design = useMemo(() => evaluateDesign(mission), [mission]);
   const orbit = useMemo(() => computeOrbitProfile({ altitudeKm: mission.altitudeKm }), [mission.altitudeKm]);
   const activeStep = steps.findIndex((s) => s.phase === phase);
 
   function selectComponent(category: ComponentCategory, id: string) {
-    setMission((prev) => {
+    updateMission((prev) => {
       const without = prev.selectedComponentIds.filter((itemId) => components.find((c) => c.id === itemId)?.category !== category);
       return { ...prev, selectedComponentIds: [...without, id] };
     });
-    setResult(null);
-  }
-
-  function simulate() {
-    try {
-      const next = runMission(mission, 2026);
-      setResult(next);
-      setError("");
-      setPhase("debrief");
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Simulation failed.");
-    }
-  }
-
-  function reset() {
-    setMission({ ...defaultMission, selectedComponentIds: [...defaultMission.selectedComponentIds] });
-    setResult(null);
-    setError("");
-    setPhase("briefing");
   }
 
   return (
@@ -86,7 +64,7 @@ function App() {
         </section>
         <nav className="stepper" aria-label="Mission progress">
           {steps.map((step, index) => <button type="button" key={step.phase} className={index === activeStep ? "step active" : index < activeStep ? "step done" : "step"} onClick={() => {
-            if (index < 3 || (index === 4 && result)) setPhase(step.phase);
+            if (step.phase !== "operations") navigate(step.phase);
           }} disabled={index === 3 || (index === 4 && !result)}>
             <span>{String(index + 1).padStart(2, "0")}</span>{step.label}</button>)}
         </nav>
@@ -99,7 +77,7 @@ function App() {
               <div><span className="objective-symbol">◫</span><strong>Design limits</strong><p>Stay within the launcher mass capacity and {budgetLimitCredits} game-credit budget.</p></div>
             </div>
             <div className="note">This is an educational simulation. Hardware parameters and launch costs are fictional game values; orbital and eclipse geometry are deliberately simplified.</div>
-            <div className="actions"><button className="primary" onClick={() => setPhase("design")}>Begin engineering →</button></div>
+            <div className="actions"><button className="primary" onClick={() => navigate("design")}>Begin engineering →</button></div>
           </>}
           {phase === "design" && <>
             <div className="section-header"><span className="eyebrow">02 / SPACECRAFT BUILDER</span><h2>Choose your spacecraft systems</h2><p>Each subsystem changes your budget, mass, energy balance or scientific output.</p></div>
@@ -112,14 +90,14 @@ function App() {
                       <span className="choice-meta">{c.massKg} kg · {c.costCredits} credits · {c.nominalPowerW} W load</span>
                     </button>)}
                 </div></div>)}
-                <div className="category"><h3>Launch strategy</h3><div className="card-grid">{launchers.map((l) => <button type="button" key={l.id} aria-pressed={mission.launcherId === l.id} onClick={() => setMission((m) => ({ ...m, launcherId: l.id }))} className={`choice-card ${mission.launcherId === l.id ? "selected" : ""}`}><span className="choice-heading">{l.name}</span><span className="choice-meta">Capacity {l.massLimitKg} kg · {l.costCredits} credits</span></button>)}</div></div>
+                <div className="category"><h3>Launch strategy</h3><div className="card-grid">{launchers.map((l) => <button type="button" key={l.id} aria-pressed={mission.launcherId === l.id} onClick={() => updateMission((m) => ({ ...m, launcherId: l.id }))} className={`choice-card ${mission.launcherId === l.id ? "selected" : ""}`}><span className="choice-heading">{l.name}</span><span className="choice-meta">Capacity {l.massLimitKg} kg · {l.costCredits} credits</span></button>)}</div></div>
               </div>
               <aside className="builder-aside">
                 <h3>MISSION PARAMETERS</h3>
                 <label className="range-label" htmlFor="altitude">Orbit altitude <strong>{mission.altitudeKm} km</strong></label>
-                <input id="altitude" type="range" min="250" max="1000" step="50" value={mission.altitudeKm} onChange={(e) => setMission((m) => ({ ...m, altitudeKm: Number(e.target.value) }))}/>
+                <input id="altitude" type="range" min="250" max="1000" step="50" value={mission.altitudeKm} onChange={(e) => updateMission((m) => ({ ...m, altitudeKm: Number(e.target.value) }))}/>
                 <label className="range-label" htmlFor="duration">Mission duration <strong>{mission.durationOrbits} orbits</strong></label>
-                <input id="duration" type="range" min="2" max="12" step="1" value={mission.durationOrbits} onChange={(e) => setMission((m) => ({ ...m, durationOrbits: Number(e.target.value) }))}/>
+                <input id="duration" type="range" min="2" max="12" step="1" value={mission.durationOrbits} onChange={(e) => updateMission((m) => ({ ...m, durationOrbits: Number(e.target.value) }))}/>
                 <p className="aside-note">Initial component specifications are synthetic, not manufacturer or NASA performance claims.</p>
                 <hr />
                 <Stat title="Total spacecraft mass" value={`${design.totalMassKg.toFixed(1)} kg`} sub={`Maximum ${design.massLimitKg} kg`} warn={design.totalMassKg > design.massLimitKg}/>
@@ -128,7 +106,7 @@ function App() {
                 <Stat title="Stored energy" value={`${design.batteryCapacityWh} Wh`} sub="Nominal battery capacity" />
               </aside>
             </div>
-            <div className="actions"><button className="ghost" onClick={() => setPhase("briefing")}>← Back</button><button className="primary" onClick={() => setPhase("review")}>Review engineering →</button></div>
+            <div className="actions"><button className="ghost" onClick={() => navigate("briefing")}>← Back</button><button className="primary" onClick={() => navigate("review")}>Review engineering →</button></div>
           </>}
           {phase === "review" && <>
             <div className="section-header"><span className="eyebrow">03 / ENGINEERING REVIEW</span><h2>{design.violations.length ? "Design requires revisions" : "Ready for mission operations"}</h2><p>Before launch, verify spacecraft constraints and orbital assumptions.</p></div>
@@ -144,9 +122,9 @@ function App() {
               {design.warnings.map((v) => <p className="caution" key={v}>! {v}</p>)}
             </div>
             <div className="note">Eclipse: maximum-eclipse idealization. Ground contact: fictional window. These outputs cannot be used for actual mission planning.</div>
-            <div className="actions"><button className="ghost" onClick={() => setPhase("design")}>← Modify spacecraft</button><button className="primary" disabled={design.violations.length > 0} onClick={() => { setPhase("operations"); window.setTimeout(simulate, 450); }}>Launch simulation →</button></div>
+            <div className="actions"><button className="ghost" onClick={() => navigate("design")}>← Modify spacecraft</button><button className="primary" disabled={design.violations.length > 0} onClick={launch}>Launch simulation →</button></div>
           </>}
-          {phase === "operations" && <div className="loading"><div className="loading-orbit">✦</div><h2>Simulating orbital operations</h2><p>Computing illumination, resource consumption, science acquisition, and communication windows.</p></div>}
+          {phase === "operations" && <div className="loading"><div className="loading-orbit">✦</div><h2>Simulating orbital operations</h2><p>Computing illumination, resource consumption, science acquisition, and communication windows.</p><button type="button" className="ghost" onClick={() => navigate("review")}>Cancel launch</button></div>}
           {phase === "debrief" && result && <>
             <div className="section-header"><span className="eyebrow">05 / MISSION DEBRIEF</span><h2>{result.success ? "Mission accomplished" : "Mission needs improvement"}</h2><p>Your engineering decisions produced these modeled outcomes.</p></div>
             <div className="result-status"><div><span className="eyebrow">MISSION SCORE</span><strong>{result.score}<small>/ 100</small></strong></div><span className={result.success ? "success-pill" : "failure-pill"}>{result.success ? "OBJECTIVES MET" : "OBJECTIVES NOT MET"}</span></div>
@@ -158,7 +136,7 @@ function App() {
             </div>
             <div className="chart-grid"><div><h3>Battery capacity throughout mission</h3><MiniChart data={result.batteryHistoryWh} max={Math.max(1, result.design.batteryCapacityWh)} unit="Wh" /></div><div><h3>Stored science data</h3><MiniChart data={result.dataHistoryMB} max={Math.max(1, ...result.dataHistoryMB)} unit="MB" /></div></div>
             <div className="review-box"><h3>Engineering insights</h3>{result.explanations.map((line, i) => <p key={i}>{line}</p>)}</div>
-            <div className="actions"><button className="ghost" onClick={reset}>↺ Start new mission</button><button className="primary" onClick={() => { setResult(null); setPhase("design"); }}>Improve design →</button></div>
+            <div className="actions"><button className="ghost" onClick={reset}>↺ Start new mission</button><button className="primary" onClick={improveDesign}>Improve design →</button></div>
           </>}
           {error && <p role="alert" className="negative">{error}</p>}
         </section>
