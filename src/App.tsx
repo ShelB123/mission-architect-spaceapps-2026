@@ -4,6 +4,7 @@ import { computeOrbitProfile } from "./engine/orbit";
 import { missionScenarios, type MissionScenarioId } from "./engine/game";
 import { assessScenarioDesign } from "./ui/assessScenarioDesign";
 import { useMissionSession } from "./ui/useMissionSession";
+import { SpacecraftPreview, type SpacecraftInspectionLoader } from "./ui/SpacecraftPreview";
 import type { ComponentCategory, MissionPhase } from "./types/contracts";
 
 const steps: { phase: MissionPhase; label: string }[] = [
@@ -39,7 +40,11 @@ function Stat({ title, value, sub, warn = false }: { title: string; value: strin
   return <div className={`stat ${warn ? "stat-warn" : ""}`}><small>{title}</small><strong>{value}</strong><span>{sub}</span></div>;
 }
 
-function App() {
+export interface AppProps {
+  readonly loadSpacecraftViewer?: SpacecraftInspectionLoader;
+}
+
+function App({ loadSpacecraftViewer }: AppProps = {}) {
   const { mission, scenarioId, selectScenario, phase, result, error, updateMission, navigate, launch, reset, improveDesign } = useMissionSession();
   const scenario = missionScenarios[scenarioId];
   const design = useMemo(() => assessScenarioDesign(mission, scenarioId), [mission, scenarioId]);
@@ -92,6 +97,7 @@ function App() {
           </>}
           {phase === "design" && <>
             <div className="section-header"><span className="eyebrow">02 / SPACECRAFT BUILDER</span><h2>Choose your spacecraft systems</h2><p>Each subsystem changes your budget, mass, energy balance or scientific output.</p></div>
+            <SpacecraftPreview selectedComponentIds={mission.selectedComponentIds} loadViewer={loadSpacecraftViewer} />
             <div className="builder-layout">
               <div className="choices">
                 {categoryOrder.map((category) => <div className="category" key={category}><h3>{categoryLabels[category]}</h3><div className="card-grid">
