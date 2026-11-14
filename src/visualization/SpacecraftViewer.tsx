@@ -89,14 +89,34 @@ export function fallbackReasonFor(state: ViewerState): FallbackReason | null {
   }
 }
 
-/** True only when a WebGL context can really be created. Safe without a DOM. */
+/**
+ * True only when a WebGL 2 context can really be created. Safe without a DOM.
+ *
+ * WebGL 1 is deliberately not accepted: the pinned Three.js (0.187) renderer
+ * requires WebGL 2, so a WebGL 1-only browser must get the 2D fallback instead
+ * of a failing canvas. The probe context is released immediately so repeated
+ * mounts and retries never accumulate live contexts.
+ */
 export function detectWebGLSupport(): boolean {
   if (typeof document === "undefined") return false;
+  let canvas: HTMLCanvasElement | null = null;
+  let context: WebGL2RenderingContext | null = null;
   try {
-    const canvas = document.createElement("canvas");
-    return Boolean(canvas.getContext("webgl2") ?? canvas.getContext("webgl"));
+    canvas = document.createElement("canvas");
+    context = canvas.getContext("webgl2") ?? null;
+    return Boolean(context) && !context?.isContextLost();
   } catch {
     return false;
+  } finally {
+    try {
+      context?.getExtension("WEBGL_lose_context")?.loseContext();
+      if (canvas) {
+        canvas.width = 0;
+        canvas.height = 0;
+      }
+    } catch {
+      // Releasing the probe is best effort; the browser reclaims it with the canvas.
+    }
   }
 }
 
