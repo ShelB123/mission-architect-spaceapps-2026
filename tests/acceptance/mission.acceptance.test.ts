@@ -36,8 +36,9 @@ function expectResourceBounds(result: MissionResult) {
   }
   expect(result.transmittedMB).toBeGreaterThanOrEqual(0);
   expect(result.transmittedMB).toBeLessThanOrEqual(result.producedMB);
-  // The engine rounds stored-data samples to 0.01 MB.
-  expect(result.dataHistoryMB.at(-1)).toBeCloseTo(result.producedMB - result.transmittedMB, 2);
+  const finalStoredMB = result.dataHistoryMB[result.dataHistoryMB.length - 1];
+  // Histories retain full precision. Allow only floating-point accumulation error.
+  expect(Math.abs(result.producedMB - result.transmittedMB - finalStoredMB)).toBeLessThan(1e-8);
   expect(result.score).toBeGreaterThanOrEqual(0);
   expect(result.score).toBeLessThanOrEqual(100);
 }
@@ -100,14 +101,14 @@ describe("independent science and mission acceptance", () => {
     });
   });
 
-  it("replays the survey with bounded resources and preserves the player's configuration", () => {
+  it("replays the default and explicit survey with the browser seed and preserves the configuration", () => {
     const mission = structuredClone(surveyMission);
     const result = runMission(mission, demonstrationSeed);
     expect(result.success).toBe(true);
     expect(result.energyOutageCount).toBe(0);
     expect(result.transmittedMB).toBeGreaterThanOrEqual(250);
     expectResourceBounds(result);
-    expect(runMission(structuredClone(surveyMission), demonstrationSeed)).toEqual(result);
+    expect(runMission(structuredClone(surveyMission), demonstrationSeed, "survey")).toEqual(result);
     expect(mission).toEqual(surveyMission);
   });
 
@@ -116,7 +117,7 @@ describe("independent science and mission acceptance", () => {
     expect(result.design.nominalPowerW).toBe(63);
     expect(result.design.solarGenerationW).toBe(60);
     // Initial battery is 110 Wh. The first minute is illuminated at beta zero.
-    expect(result.batteryHistoryWh[0]).toBe(109.95);
+    expect(result.batteryHistoryWh[0]).toBeCloseTo(109.95, 9);
   });
 
   it("can recover an energy-limited mission by changing only the solar array", () => {
@@ -129,9 +130,11 @@ describe("independent science and mission acceptance", () => {
     expectResourceBounds(deficit);
     expectResourceBounds(recovered);
     expect(deficit.success).toBe(false);
+    expect(deficit.score).toBeLessThan(100);
     expect(deficit.energyOutageCount).toBeGreaterThan(0);
     expect(recovered.success).toBe(true);
     expect(recovered.energyOutageCount).toBe(0);
+    expect(recovered.batteryHistoryWh.at(-1)).toBeCloseTo(110, 9);
     expect(recovered.transmittedMB).toBeGreaterThan(deficit.transmittedMB);
   });
 });
