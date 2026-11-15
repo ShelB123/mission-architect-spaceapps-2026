@@ -14,7 +14,7 @@ afterEach(() => { cleanup(); vi.clearAllTimers(); vi.useRealTimers(); vi.restore
 
 describe("playable cockpit", () => {
   it("shows component gains and costs before and after equipping", () => {
-    render(<App />); click(/Begin engineering/);
+    render(<App initialAssisted={false} />); click(/Begin engineering/);
     const camera = screen.getByRole("button", { name: /High-Resolution Imager/ });
     fireEvent.focus(camera);
     expect(screen.getByText("+3.5 MB/min acquisition")).toBeTruthy();
@@ -25,7 +25,7 @@ describe("playable cockpit", () => {
     expect(screen.getByText("+9 kg")).toBeTruthy();
   });
   it("plays only elapsed telemetry, pauses, resumes and completes normally", () => {
-    render(<App />); click(/Begin engineering/); launch();
+    render(<App initialAssisted={false} />); click(/Begin engineering/); launch();
     expect(screen.queryByText("MISSION SCORE")).toBeNull();
     expect(elapsed()).toBe("0");
     tick(3000); const before = elapsed(); expect(Number(before)).toBeGreaterThan(0);
@@ -38,11 +38,13 @@ describe("playable cockpit", () => {
   });
   it("records real commands and can lose by choosing never to acquire data", () => {
     const replay = vi.spyOn(game, "replayMission");
-    render(<App />); click(/Begin engineering/); launch();
+    render(<App initialAssisted={false} />); click(/Begin engineering/); launch();
     click(/Pause playback/); click(/Save power/);
     expect(replay).toHaveBeenLastCalledWith(expect.anything(), 2026, "survey", [{ timeSeconds: 0, cameraOn: false }]);
     expect(screen.getByText(/60 W generation · 21 W load/)).toBeTruthy();
+    click(/Command log/);
     expect(screen.getByText("0.0 min · camera off")).toBeTruthy();
+    click(/Close details/);
     expect(screen.queryByText("MISSION SCORE")).toBeNull();
     finish();
     expect(screen.getByText("One more iteration.")).toBeTruthy();
@@ -50,7 +52,7 @@ describe("playable cockpit", () => {
     expect(replay.mock.results.at(-1)!.value.result.producedMB).toBe(0);
   });
   it("compares consecutive attempts under the same seed and removes mismatched comparisons", () => {
-    render(<App />); click(/Begin engineering/); launch(); finish();
+    render(<App initialAssisted={false} />); click(/Begin engineering/); launch(); finish();
     click(/Improve design/); click(/Expanded Solar Array/); launch(); finish();
     expect(screen.getByText("Compared with your last attempt")).toBeTruthy();
     expect(screen.getByText("+140 cr")).toBeTruthy();
@@ -61,7 +63,7 @@ describe("playable cockpit", () => {
   });
   it("cancels active playback and discards its commands", () => {
     const replay = vi.spyOn(game, "replayMission");
-    render(<App />); click(/Begin engineering/); launch(); click(/Save power/);
+    render(<App initialAssisted={false} />); click(/Begin engineering/); launch(); click(/Save power/);
     click(/Cancel launch/); tick(120000);
     expect(screen.queryByText("MISSION SCORE")).toBeNull();
     click(/Launch simulation/); tick(450);
@@ -69,7 +71,7 @@ describe("playable cockpit", () => {
     finish(); expect(screen.getByText("Mission accomplished")).toBeTruthy();
   });
   it("allows keyboard users to dismiss help and returns focus", () => {
-    render(<App />);
+    render(<App initialAssisted={false} />);
     const help = screen.getByRole("button", { name: "Help and model assumptions" });
     help.focus(); fireEvent.click(help);
     const close = screen.getByRole("button", { name: "Close help" });

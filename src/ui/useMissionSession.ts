@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { defaultMission } from "../data/catalog";
 import { missionScenarios, replayMission, type MissionScenarioId, type MissionReplay, type MissionCommand, type MissionFrame } from "../engine/game";
 import type { MissionConfig, MissionPhase, MissionResult } from "../types/contracts";
+
+import { advanceToDecision, missionDecisions } from "../engine/missionDecisions";
 
 const initialMission = (): MissionConfig => ({ ...defaultMission, selectedComponentIds: [...defaultMission.selectedComponentIds] });
 const copyMission = (mission: MissionConfig): MissionConfig => ({ ...mission, selectedComponentIds: [...mission.selectedComponentIds] });
@@ -20,7 +22,8 @@ export function frameAt(frames: readonly MissionFrame[], time: number): MissionF
   return frames[low];
 }
 
-export function useMissionSession() {
+export function useMissionSession(assisted = false) {
+  const [handledDecisions, setHandledDecisions] = useState<string[]>([]);
   const [mission, setMission] = useState<MissionConfig>(initialMission);
   const [scenarioId, setScenarioId] = useState<MissionScenarioId>("survey");
   const [seed, setSeed] = useState(2026);
@@ -39,6 +42,9 @@ export function useMissionSession() {
   const finished = useRef(false);
   const duration = replay?.frames.at(-1)?.timeSeconds ?? 0;
   const frame = replay ? frameAt(replay.frames, cursor) : undefined;
+
+  const decisions = useMemo(() => missionDecisions(replay?.frames ?? []), [replay]);
+  const pendingDecision = assisted ? decisions.find(d => !handledDecisions.includes(d.id) && d.timeSeconds <= cursor) : undefined;
 
   const cancelPending = useCallback(() => {
     generation.current++;
@@ -59,14 +65,14 @@ export function useMissionSession() {
   }, [replay]);
 
   useEffect(() => {
-    if (phase !== "operations" || !replay || paused) return;
-    const tick = setInterval(() => setCursor(time => Math.min(duration, time + speed / 10)), 100);
+    if (phase !== "operations" || !replay || paused || pendingDecision) return;
+    const tick = setInterval(() => setCursor(time => assisted ? advanceToDecision(time, Math.min(duration, time + speed / 10), decisions, handledDecisions) : Math.min(duration, time + speed / 10)), 100);
     return () => clearInterval(tick);
-  }, [phase, replay, paused, speed, duration]);
+  }, [phase, replay, paused, speed, duration, assisted, decisions, handledDecisions, pendingDecision]);
   useEffect(() => { if (phase === "operations" && replay && cursor >= duration) finish(); }, [phase, replay, cursor, duration, finish]);
 
   function invalidateResult() {
-    cancelPending(); setResult(null); setReplay(null); setError(""); setCursor(0);
+    cancelPending(); setHandledDecisions([]); setResult(null); setReplay(null); setError(""); setCursor(0);
     setPhase(previous => previous === "operations" || previous === "debrief" ? "design" : previous);
   }
   function updateMission(update: (previous: MissionConfig) => MissionConfig) { invalidateResult(); setMission(update); }
@@ -88,7 +94,7 @@ export function useMissionSession() {
     cancelPending();
     const launchGeneration = generation.current;
     const snapshot = { config: copyMission(mission), seed, scenarioId };
-    launched.current = snapshot; finished.current = false;
+    launched.current = snapshot; finished.current = false; setHandledDecisions([]);
     setResult(null); setReplay(null); setError(""); setCursor(0); setPaused(false); setPhase("operations");
     timer.current = setTimeout(() => {
       timer.current = null;
@@ -110,12 +116,25 @@ export function useMissionSession() {
     try { setReplay(replayMission(snapshot.config, snapshot.seed, snapshot.scenarioId, commands)); }
     catch (cause) { setError(cause instanceof Error ? cause.message : "Command failed."); }
   }
+  function resolveDecision(cameraOn: boolean) {
+    if (!pendingDecision) return;
+    commandCamera(cameraOn);
+    setHandledDecisions(previous => [...previous, pendingDecision.id]);
+    setPaused(false);
+  }
+  function nextDecision() {
+    if (!replay || pendingDecision) return;
+    const next = decisions.find(d => d.timeSeconds >= cursor && !handledDecisions.includes(d.id));
+    if (next) setCursor(next.timeSeconds);
+    else finish();
+  }
   function reset() {
+    setHandledDecisions([]);
     cancelPending(); setMission(initialMission()); setScenarioId("survey"); setSeed(2026);
     setResult(null); setReplay(null); setPreviousAttempt(null); lastCompleted.current = null;
     setCursor(0); setError(""); setPhase("briefing");
   }
   function improveDesign() { cancelPending(); setResult(null); setReplay(null); setError(""); setPhase("design"); }
   return { mission, scenarioId, selectScenario, seed, changeSeed, phase, result, replay, frame, cursor, duration, paused,
-    setPaused, speed, setSpeed, previousAttempt, error, updateMission, navigate, launch, reset, improveDesign, commandCamera, finish };
+    setPaused, speed, setSpeed, previousAttempt, error, updateMission, navigate, launch, reset, improveDesign, commandCamera, finish, pendingDecision, resolveDecision, nextDecision, decisions, handledDecisions };
 }

@@ -27,9 +27,9 @@ import type { ViewerAction, ViewerState } from "../src/visualization/SpacecraftV
 import { SYNTHETIC_GEOMETRY_NOTICE } from "../src/visualization/types";
 import type { ComponentVisualDefinition, SpacecraftVisualModel, VisualCatalog, VisualPart } from "../src/visualization/types";
 
-const EIGHT_IDS = [
+const COMPONENT_IDS = [
   "camera-basic", "camera-hd", "solar-basic", "solar-advanced",
-  "battery-basic", "battery-advanced", "radio-basic", "radio-advanced",
+  "battery-basic", "battery-advanced", "radio-basic", "radio-advanced", "solar-double", "battery-double",
 ] as const;
 const DEFAULT_IDS = ["camera-basic", "solar-basic", "battery-basic", "radio-basic"];
 
@@ -73,13 +73,13 @@ function collectClickHandlers(node: ReactNode, found: (() => void)[] = []): (() 
 }
 
 describe("visual catalog", () => {
-  it("represents the eight existing components with matching IDs, categories and names", () => {
-    expect(Object.keys(visualCatalog).sort()).toEqual([...EIGHT_IDS].sort());
-    expect(physicalComponents.map((component) => component.id).sort()).toEqual([...EIGHT_IDS].sort());
+  it("represents all ten components with matching IDs, categories and names", () => {
+    expect(Object.keys(visualCatalog).sort()).toEqual([...COMPONENT_IDS].sort());
+    expect(physicalComponents.map((component) => component.id).sort()).toEqual([...COMPONENT_IDS].sort());
 
-    const model = build(EIGHT_IDS);
+    const model = build(COMPONENT_IDS);
     expect(model.issues).toEqual([]);
-    expect(model.components.map((component) => component.componentId)).toEqual([...EIGHT_IDS]);
+    expect(model.components.map((component) => component.componentId)).toEqual([...COMPONENT_IDS]);
     for (const physical of physicalComponents) {
       const visual = visualCatalog[physical.id];
       expect(visual.componentId).toBe(physical.id);
@@ -91,8 +91,8 @@ describe("visual catalog", () => {
   });
 
   it("gives every alternative a different geometry, not just a different colour", () => {
-    const signatures = EIGHT_IDS.map((id) => geometrySignature(visualCatalog[id]));
-    expect(new Set(signatures).size).toBe(EIGHT_IDS.length);
+    const signatures = COMPONENT_IDS.map((id) => geometrySignature(visualCatalog[id]));
+    expect(new Set(signatures).size).toBe(COMPONENT_IDS.length);
     const partCount = (id: string) => visualCatalog[id].parts.length;
     expect(partCount("camera-hd")).not.toBe(partCount("camera-basic"));
     expect(partCount("solar-advanced")).not.toBe(partCount("solar-basic"));
@@ -221,7 +221,7 @@ describe("buildSpacecraftVisualModel", () => {
   });
 
   it("uses collision-free node keys with a reserved bus namespace", () => {
-    const model = build(EIGHT_IDS);
+    const model = build(COMPONENT_IDS);
     const keys = [
       ...model.busParts.map((part) => busNodeKey(part.partId)),
       ...model.components.flatMap((component) => component.parts.map((part) => visualNodeKey(component.componentId, part.partId))),
@@ -355,7 +355,7 @@ describe("separation between presentation and simulation", () => {
   };
 
   it("never imports engines, the physical catalog or the app from the visualization layer", () => {
-    expect(Object.keys(sources)).toHaveLength(6);
+    expect(Object.keys(sources)).toHaveLength(7);
     for (const [path, source] of Object.entries(sources)) {
       for (const specifier of importsOf(source)) {
         expect(specifier, path).not.toMatch(/engine|data\/catalog|App|styles\.css/);
@@ -377,7 +377,7 @@ describe("separation between presentation and simulation", () => {
   });
 
   it("exposes no engineering quantity in the visual model", () => {
-    const serialized = JSON.stringify(build(EIGHT_IDS));
+    const serialized = JSON.stringify(build(COMPONENT_IDS));
     for (const field of ["massKg", "costCredits", "nominalPowerW", "solarGenerationW", "batteryCapacityWh", "scienceMBperMinute", "downlinkMBperMinute", "score"]) {
       expect(serialized).not.toContain(field);
     }

@@ -11,6 +11,8 @@ export const components: SpaceComponent[] = [
   { id: "solar-advanced", name: "Expanded Solar Array", category: "solar", description: "Higher generation at mass and budget cost.", massKg: 7, costCredits: 220, nominalPowerW: 0, solarGenerationW: 150, isSynthetic: true },
   { id: "battery-basic", name: "Compact Battery", category: "battery", description: "A limited energy reserve.", massKg: 3, costCredits: 75, nominalPowerW: 0, batteryCapacityWh: 110, isSynthetic: true },
   { id: "battery-advanced", name: "Extended Battery", category: "battery", description: "More reserve capacity for eclipse.", massKg: 7, costCredits: 190, nominalPowerW: 0, batteryCapacityWh: 380, isSynthetic: true },
+  { id: "solar-double", name: "Two Standard Arrays", category: "solar", description: "Two standard array units: double generation, mass and cost.", massKg: 8, costCredits: 160, nominalPowerW: 0, solarGenerationW: 120, isSynthetic: true },
+  { id: "battery-double", name: "Two Compact Batteries", category: "battery", description: "Two compact battery units: double reserve, mass and cost.", massKg: 6, costCredits: 150, nominalPowerW: 0, batteryCapacityWh: 220, isSynthetic: true },
   { id: "radio-basic", name: "Basic Downlink", category: "communications", description: "Small science data transmission capacity.", massKg: 2, costCredits: 80, nominalPowerW: 9, downlinkMBperMinute: 3.5, isSynthetic: true },
   { id: "radio-advanced", name: "High-Rate Downlink", category: "communications", description: "More data transmitted per communication window.", massKg: 4, costCredits: 210, nominalPowerW: 18, downlinkMBperMinute: 14, isSynthetic: true },
 ];

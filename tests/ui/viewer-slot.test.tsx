@@ -20,7 +20,7 @@ const openPreview = async () => { await act(async () => { const button = screen.
 describe("optional viewer integration host", () => {
   it("keeps the component list and complete game available without a renderer", () => {
     vi.useFakeTimers();
-    render(<App />);
+    render(<App initialAssisted={false} />);
     click(/Begin engineering/);
     expect(screen.getByRole("list", { name: "Selected spacecraft components" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: /Show 3D preview/ })).toBeNull();
@@ -51,7 +51,7 @@ describe("optional viewer integration host", () => {
     const loader = vi.fn<SpacecraftInspectionLoader>()
       .mockRejectedValueOnce(new Error("Missing chunk"))
       .mockResolvedValue({ default: InspectionHarness });
-    render(<App loadSpacecraftViewer={loader} />);
+    render(<App initialAssisted={false} loadSpacecraftViewer={loader} />);
     click(/Begin engineering/);
     await openPreview();
     expect(screen.getByText(/The 3D preview could not load/)).toBeTruthy();
@@ -65,7 +65,7 @@ describe("optional viewer integration host", () => {
   it("contains render/adapter failures without breaking component selection", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     const loader = async () => ({ default: () => { throw new Error("Adapter failed"); } });
-    render(<App loadSpacecraftViewer={loader} />);
+    render(<App initialAssisted={false} loadSpacecraftViewer={loader} />);
     click(/Begin engineering/);
     await openPreview();
     expect(screen.getByText(/The 3D preview could not load/)).toBeTruthy();
@@ -113,7 +113,7 @@ describe("optional viewer integration host", () => {
     vi.useFakeTimers();
     const baseline = game.runMission(defaultMission, 2026, "survey");
     const run = vi.spyOn(game, "replayMission");
-    render(<App loadSpacecraftViewer={async () => ({ default: InspectionHarness })} />);
+    render(<App initialAssisted={false} loadSpacecraftViewer={async () => ({ default: InspectionHarness })} />);
     click(/Begin engineering/);
     await openPreview();
     click(/Inspect test component/);

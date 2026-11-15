@@ -192,6 +192,10 @@ const radioAdvanced: ComponentVisualDefinition = {
   ],
 };
 
+// Composite kits keep one category slot while depicting two separate basic units.
+const solarDouble: ComponentVisualDefinition = { ...solarBasic, componentId: "solar-double", label: "Two Standard Arrays", parts: [-1,1].flatMap((side, index) => solarBasic.parts.map(p => ({ ...p, partId: `unit-${index+1}-${p.partId}`, positionM: [p.positionM[0], p.positionM[1]+side*.155, p.positionM[2]] as Vec3 }))) };
+const batteryDouble: ComponentVisualDefinition = { ...batteryBasic, componentId: "battery-double", label: "Two Compact Batteries", parts: [-1,1].flatMap((side, index) => batteryBasic.parts.map(p => ({ ...p, partId: `unit-${index+1}-${p.partId}`, positionM: [p.positionM[0], p.positionM[1], p.positionM[2]+side*.023] as Vec3 }))) };
+
 export const visualCatalog: VisualCatalog = deepFreeze({
   "camera-basic": cameraBasic,
   "camera-hd": cameraHd,
@@ -199,6 +203,8 @@ export const visualCatalog: VisualCatalog = deepFreeze({
   "solar-advanced": solarAdvanced,
   "battery-basic": batteryBasic,
   "battery-advanced": batteryAdvanced,
+  "solar-double": solarDouble,
+  "battery-double": batteryDouble,
   "radio-basic": radioBasic,
   "radio-advanced": radioAdvanced,
 });

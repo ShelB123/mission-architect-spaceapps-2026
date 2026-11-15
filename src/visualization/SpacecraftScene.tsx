@@ -192,7 +192,7 @@ function hasInternalParts(component: ComponentVisualDefinition | undefined): boo
   return Boolean(component?.parts.some((part) => part.internal));
 }
 
-function Assembly({ model, highlightedComponentId, schematic, reducedMotion, onInspectComponent }: AssemblyProps) {
+export function Assembly({ model, highlightedComponentId, schematic, reducedMotion, onInspectComponent }: AssemblyProps) {
   const invalidate = useThree((state) => state.invalidate);
   const canvas = useThree((state) => state.gl.domElement);
   const [hoveredId, setHoveredId] = useState<string | null>(null);

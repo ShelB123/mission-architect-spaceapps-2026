@@ -26,26 +26,26 @@ describe("language preference", () => {
   });
   it("starts in the browser's language and remembers an explicit change", () => {
     vi.spyOn(navigator, "languages", "get").mockReturnValue(["es-PE"]);
-    const first = render(<App />);
+    const first = render(<App initialAssisted={false} />);
     expect(screen.getByRole("button", { name: /Diseñar satélite/ })).toBeTruthy();
     expect(document.documentElement.lang).toBe("es");
     language("en");
     expect(localStorage.getItem(LANGUAGE_KEY)).toBe("en");
     expect(document.documentElement.lang).toBe("en");
-    first.unmount(); render(<App />);
+    first.unmount(); render(<App initialAssisted={false} />);
     expect(screen.getByRole("button", { name: /Begin engineering/ })).toBeTruthy();
   });
   it("still switches language when browser storage is unavailable", () => {
     vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => { throw new Error("blocked"); });
     vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("blocked"); });
-    render(<App />); language("es");
+    render(<App initialAssisted={false} />); language("es");
     expect(screen.getByRole("button", { name: /Diseñar satélite/ })).toBeTruthy();
   });
 });
 
 describe("localized gameplay", () => {
   it("translates configuration and launch constraints without resetting choices", () => {
-    render(<App />); language("es");
+    render(<App initialAssisted={false} />); language("es");
     fireEvent.change(screen.getByLabelText("Escenario de misión"), { target: { value: "budget-survey" } });
     click(/Diseñar satélite/); click(/Paneles solares ampliados/);
     expect(screen.getByText("+90 W de generación")).toBeTruthy();
@@ -58,10 +58,11 @@ describe("localized gameplay", () => {
   });
   it("switches during a paused flight without rerunning the engine or losing commands", () => {
     const replay = vi.spyOn(game, "replayMission");
-    render(<App />); language("es");
+    render(<App initialAssisted={false} />); language("es");
     click(/Diseñar satélite/); click(/Revisar diseño/); click(/Iniciar misión/);
     act(() => vi.advanceTimersByTime(450));
     click(/^Pausar$/); click(/Ahorrar energía/);
+    click(/Registro de órdenes/);
     expect(screen.getByText("0.0 min · cámara apagada")).toBeTruthy();
     const result = replay.mock.results.at(-1)!.value.result;
     expect(replay).toHaveBeenCalledTimes(2);
@@ -69,16 +70,17 @@ describe("localized gameplay", () => {
     expect(screen.getByRole("button", { name: "Resume playback" })).toBeTruthy();
     expect(screen.getByText("0.0 min · camera off")).toBeTruthy();
     expect(replay).toHaveBeenCalledTimes(2);
-    language("es"); click(/Simular hasta el final/);
+    language("es"); click(/Cerrar detalles/); click(/Simular hasta el final/);
     expect(screen.getByText("Prueba otra estrategia.")).toBeTruthy();
+    click(/Informe técnico completo/); click(/^Siguiente$/); click(/^Siguiente$/);
     expect(screen.getByText(/Semilla de simulación: 2026/)).toBeTruthy();
     expect(screen.queryByText(/Replay seed: 2026/)).toBeNull();
     expect(replay.mock.results.at(-1)!.value.result).toBe(result);
-    click(/Dame una pista/);
+    click(/Cerrar detalles/); click(/Dame una pista/);
     expect(screen.getByText(/Una cámara más potente consume más electricidad/)).toBeTruthy();
   });
   it("localizes help and scenario-specific science goals", () => {
-    render(<App />); language("es");
+    render(<App initialAssisted={false} />); language("es");
     fireEvent.change(screen.getByLabelText("Escenario de misión"), { target: { value: "rapid-science" } });
     expect(screen.getByText(/Envía 1000 MB antes de terminar 6 órbitas/)).toBeTruthy();
     click(/Ayuda y supuestos del modelo/);

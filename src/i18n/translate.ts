@@ -4,6 +4,8 @@ import type { Language } from "./Language";
 type Rule = readonly [RegExp, (match: RegExpMatchArray, t: (text: string) => string) => string];
 /** Translate legacy engine prose at the presentation boundary; never mutate engine output. */
 const rules: readonly Rule[] = [
+  [/^(.+) min · camera (on|off)$/, (m,t) => `${m[1]} min · cámara ${t(m[2])}`],
+  [/^unit (\d+) (.+)$/, (m,t) => `unidad ${m[1]}: ${t(m[2])}`],
   [/^([\d.]+) W generation · ([\d.]+) W load$/, m => `${m[1]} W de generación · ${m[2]} W de consumo`],
   [/^([+\-\d.]+) W generation$/, m => `${m[1]} W de generación`],
   [/^([+\-\d.]+) Wh reserve$/, m => `${m[1]} Wh de reserva`],

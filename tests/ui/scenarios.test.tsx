@@ -20,7 +20,7 @@ afterEach(() => { cleanup(); vi.clearAllTimers(); vi.useRealTimers(); vi.restore
 describe("scenario controls", () => {
   it.each(scenarioIds)("launches %s with the actual engine scenario and displays its limits", (id) => {
     const run = vi.spyOn(game, "replayMission");
-    render(<App />);
+    render(<App initialAssisted={false} />);
     expect(screen.getByLabelText("Training scenario").querySelectorAll("option")).toHaveLength(4);
     scenarioSelect(id);
     const scenario = game.missionScenarios[id];
@@ -40,7 +40,7 @@ describe("scenario controls", () => {
   });
 
   it("blocks an otherwise valid design over the Lean Survey budget and permits correction", () => {
-    render(<App />);
+    render(<App initialAssisted={false} />);
     scenarioSelect("budget-survey");
     click(/Begin engineering/);
     click(/Expanded Solar Array/); // 735 credits; still within rideshare mass.
@@ -54,7 +54,7 @@ describe("scenario controls", () => {
   });
 
   it("keeps the chosen duration visible and blocks a stricter scenario deadline", () => {
-    render(<App />);
+    render(<App initialAssisted={false} />);
     click(/Begin engineering/);
     fireEvent.change(screen.getByLabelText(/Mission duration/), { target: { value: "8" } });
     scenarioSelect("rapid-science");
@@ -68,7 +68,7 @@ describe("scenario controls", () => {
 
   it("invalidates debrief on scenario change and cancels a pending launch", () => {
     const run = vi.spyOn(game, "replayMission");
-    render(<App />);
+    render(<App initialAssisted={false} />);
     click(/Begin engineering/);
     click(/Review engineering/);
     click(/Launch simulation/);
@@ -87,7 +87,7 @@ describe("scenario controls", () => {
   });
 
   it("labels battery history as energy, preserves an accessible range, and resets the scenario", () => {
-    render(<App />);
+    render(<App initialAssisted={false} />);
     scenarioSelect("endurance");
     click(/Begin engineering/);
     expect(screen.getByText("Battery capacity")).toBeTruthy();
