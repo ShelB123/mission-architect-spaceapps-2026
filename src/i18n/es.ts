@@ -456,4 +456,7 @@ export const es: Readonly<Record<string, string>> = {
   "Try the same seed with a cheaper design or fewer orbits. Compare the result before deciding it is better.": "Prueba la misma semilla con un diseño más barato o menos órbitas. Compara el resultado antes de decidir si es mejor.",
   "What to try next": "Qué probar ahora",
   "First recorded power deficit at": "Primer déficit eléctrico registrado a los",
+  "Retry 3D": "Reintentar 3D",
+  "WebGL 2 is unavailable. The mission continues in 2D.": "WebGL 2 no está disponible. La misión continúa en 2D.",
+  "The 3D view could not load or its graphics context was lost. Retry without restarting your mission.": "La vista 3D no pudo cargar o perdió su contexto gráfico. Reintenta sin reiniciar la misión.",
 };

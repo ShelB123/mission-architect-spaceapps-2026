@@ -121,7 +121,7 @@ describe("viewer without WebGL", () => {
     expect(scene.mounts).toBe(0);
     expect(screen.getByText(/WebGL is not available/)).toBeTruthy();
     expect(screen.getByRole("img", { name: /2D front-view schematic/ })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Try 3D again" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Try 3D again" })).toBeTruthy();
 
     const list = screen.getByRole("list", { name: "Selected components shown in the viewer" });
     const battery = within(list).getByRole("button", { name: /Compact Battery/ });

@@ -31,14 +31,15 @@ describe("space environment exploration",()=>{
     click(/Resume playback/);act(()=>vi.advanceTimersByTime(1000));expect(screen.getByRole("progressbar").getAttribute("aria-valuenow")).not.toBe(time);
     click(/Finish remaining simulation/);expect(screen.getByText("MISSION SCORE")).toBeTruthy();
   });
-  it("offers the complete Spanish explorer and retains the chosen flight camera",()=>{
+  it("offers the complete Spanish explorer and honestly indicates the 2D fallback",()=>{
     localStorage.setItem("mission-architect-language","es");render(<App initialAssisted={false}/>);
     click(/Diseñar satélite/);click(/Revisar diseño/);click(/Iniciar misión/);act(()=>vi.advanceTimersByTime(450));
     click(/^Cámara a bordo$/);click(/^Explorar espacio$/);
     click(/^ISS$/);expect(screen.getByText(/unos 400 km/)).toBeTruthy();
     click(/^Tu misión$/);expect(screen.getByText(/no indica su posición real/)).toBeTruthy();
     click(/^Luna$/);expect(screen.getByText(/384 400/)).toBeTruthy();
-    click(/^Volver a la misión$/);expect(screen.getByRole("button",{name:"Cámara a bordo"}).getAttribute("aria-pressed")).toBe("true");
+    click(/^Volver a la misión$/);expect(screen.getByRole("button",{name:"Cámara a bordo"}).getAttribute("aria-pressed")).toBe("false");
+    expect(screen.getByRole("button",{name:"Órbita 2D"}).getAttribute("aria-pressed")).toBe("true");
     expect(screen.getByRole("button",{name:"Reanudar"})).toBeTruthy();
   });
 });

@@ -62,6 +62,19 @@ describe("optional viewer integration host", () => {
     expect(screen.getByRole("button", { name: "Inspect test component" })).toBeTruthy();
   });
 
+  it("retries a rejected bridge directly without hiding or resetting the design", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const loader = vi.fn<SpacecraftInspectionLoader>()
+      .mockRejectedValueOnce(new Error("Server disconnected"))
+      .mockResolvedValue({ default: InspectionHarness });
+    render(<SpacecraftPreview selectedComponentIds={defaultMission.selectedComponentIds} loadViewer={loader} initiallyOpen />);
+    await act(async () => {});
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Retry 3D" })));
+    expect(loader).toHaveBeenCalledTimes(2);
+    expect(screen.getByRole("button", { name: "Inspect test component" })).toBeTruthy();
+    expect(screen.getByRole("list", { name: "Selected spacecraft components" }).textContent).toContain("Survey Camera");
+  });
+
   it("contains render/adapter failures without breaking component selection", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     const loader = async () => ({ default: () => { throw new Error("Adapter failed"); } });

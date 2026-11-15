@@ -55,7 +55,7 @@ export function SpacecraftPreview({ selectedComponentIds, loadViewer, onInspectC
       }}>{t(enabled ? "Hide 3D preview" : "Show 3D preview")}</button>
         : <p>{t("3D preview is not available. You can continue designing with the component cards.")}</p>}
       {enabled && Viewer && <PreviewBoundary key={attempt} fallback={
-        <p role="status">{t("The 3D preview could not load. Your design is still available. Hide and reopen the preview to retry.")}</p>
+        <div role="status"><p>{t("The 3D preview could not load. Your design is still available. Hide and reopen the preview to retry.")}</p><button onClick={() => setAttempt(value => value + 1)}>{t("Retry 3D")}</button></div>
       }>
         <Suspense fallback={<p role="status">{t("Loading spacecraft preview…")}</p>}>
           <Viewer selectedComponentIds={selection} onInspectComponent={(id) => {

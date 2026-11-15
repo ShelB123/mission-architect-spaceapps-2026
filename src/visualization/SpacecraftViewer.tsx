@@ -8,7 +8,7 @@
  *   the 3D view is actually shown. Every failure path (no WebGL, context loss,
  *   chunk or render error, 3D turned off) lands on SpacecraftFallback.
  */
-import { Component, Suspense, lazy, useCallback, useEffect, useReducer, useState } from "react";
+import { Component, Suspense, lazy, useCallback, useEffect, useMemo, useReducer, useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
 import SpacecraftFallback, { SpacecraftIssues, SpacecraftPartsList } from "./SpacecraftFallback";
 import type { FallbackReason } from "./SpacecraftFallback";
@@ -17,7 +17,7 @@ import type { SpacecraftViewerProps } from "./types";
 import "./spacecraft-viewer.css";
 
 const identityText = (text: string) => text;
-const SpacecraftScene = lazy(() => import("./SpacecraftScene"));
+
 
 /* ---------- View state (pure, exported for tests) ---------- */
 
@@ -180,6 +180,7 @@ class SceneErrorBoundary extends Component<BoundaryProps, { failed: boolean }> {
 
 export default function SpacecraftViewer({ model, highlightedComponentId, onInspectComponent, className, translate: t = identityText }: SpacecraftViewerProps) {
   const [state, dispatch] = useReducer(reduceViewerState, initialViewerState);
+  const SpacecraftScene = useMemo(() => { void state.mountKey; return lazy(() => import("./SpacecraftScene")); }, [state.mountKey]);
   const [command, setCommand] = useState<CameraCommand>({ sequence: 0, kind: "reset" });
   const [reducedMotion, setReducedMotion] = useState(false);
 
@@ -231,7 +232,7 @@ export default function SpacecraftViewer({ model, highlightedComponentId, onInsp
       reason={reason}
       highlightedComponentId={activeHighlightId}
       onInspectComponent={inspect}
-      onRetry={reason === "context-lost" || reason === "error" ? retry : undefined}
+      onRetry={reason === "context-lost" || reason === "error" || reason === "unsupported" ? retry : undefined}
       showLists={false}
     />
   );
