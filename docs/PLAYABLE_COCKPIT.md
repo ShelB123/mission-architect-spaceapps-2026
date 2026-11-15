@@ -110,3 +110,38 @@ engine's assessment function to prevent inconsistent launch gates.
 - git diff --check: passed.
 - Local Vite HTTP endpoint: 200 at http://127.0.0.1:5173.
 - No automated browser screenshot or real-player usability session completed.
+
+## Spanish / English interface (2026-11-15)
+
+The header language selector translates mission briefs, component choices, trade-offs,
+preflight checks, operations, reports, help, accessibility labels and the optional
+3D / fallback viewer. A supported stored preference takes priority over the browser
+language list; unsupported locales fall back to Spanish. Storage failure is harmless.
+Switching language does not remount the mission, rerun physics, change numbers, seed,
+configuration, replay position or command log.
+
+Implementation: src/i18n/{Language.tsx,es.ts,translate.ts}, presentation call sites
+in App/UI, and an optional presentation-only translator prop in the viewer. The
+viewer remains independent of application context, engines and the physical catalog.
+Shared contracts, engines, dependencies and 3D geometry are unchanged in this increment.
+This remains an integrator-reviewed PR because App, global styles and viewer labels
+cross module ownership.
+
+Legacy engine messages are translated at the presentation boundary with tested
+templates. New unknown text falls back to English rather than dropping diagnostic
+evidence; new engine messages need matching translations. Stable message identifiers
+would be a later coordinated contract proposal, not a change hidden in this PR.
+
+Validation: full suite 214 passed / 12 files; after replacing a test-only Node fs
+import with Vite raw imports, all 12 language tests passed again. TypeScript and
+production build passed (existing large Three.js chunk advisory remains). Browser
+verification covered ES/EN switching, the Spanish 3D constructor, preflight, operations,
+completion and retry at 1280x720. Screenshot captured. Mobile visual verification and
+new-player enjoyment testing remain pending.
+
+Gameplay observation: the default first mission succeeds without upgrades or commands
+(294.3 MB returned against 250 MB; zero power-deficit intervals). This is suitable for
+a guided introduction, but not sufficient evidence of an engaging challenge. Proposed
+next increment: a concrete synthetic science objective with visible delivered-data
+progress, meaningful operational choices, and varied recoverable constraints. This
+is a recommendation, not functionality implemented by the localization change.

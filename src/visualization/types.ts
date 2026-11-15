@@ -82,6 +82,8 @@ export interface SpacecraftViewerProps {
   /** Inspection only: never equips hardware or changes MissionConfig. */
   readonly onInspectComponent?: (componentId: string) => void;
   readonly className?: string;
+  /** Optional presentation-only translation; defaults to the canonical English copy. */
+  readonly translate?: (text: string) => string;
 }
 
 export interface KnownComponentRef {
@@ -100,7 +102,7 @@ export type BuildSpacecraftVisualModel = (
 /** The configuration boundary uses only this existing field. */
 export type VisualSelection = Readonly<Pick<MissionConfig, "selectedComponentIds">>;
 
-/** Visible provenance label required by docs/ARCHITECTURE.md §6 (UI is in English). */
+/** Visible provenance label required by docs/ARCHITECTURE.md §6 (canonical English source text). */
 export const SYNTHETIC_GEOMETRY_NOTICE = "Synthetic schematic geometry; not a CAD model";
 
 export const CATEGORY_LABELS: Readonly<Record<ComponentCategory, string>> = {

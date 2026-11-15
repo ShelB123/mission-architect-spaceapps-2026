@@ -21,7 +21,7 @@ describe("scenario controls", () => {
   it.each(scenarioIds)("launches %s with the actual engine scenario and displays its limits", (id) => {
     const run = vi.spyOn(game, "replayMission");
     render(<App />);
-    expect(screen.getAllByRole("option")).toHaveLength(4);
+    expect(screen.getByLabelText("Training scenario").querySelectorAll("option")).toHaveLength(4);
     scenarioSelect(id);
     const scenario = game.missionScenarios[id];
     expect(screen.getByRole("heading", { name: scenario.name })).toBeTruthy();

@@ -1,3 +1,4 @@
+import { useLanguage } from "../i18n/Language";
 import { useMemo } from "react";
 import { components } from "../data/catalog";
 import SpacecraftViewer from "../visualization/SpacecraftViewer";
@@ -14,9 +15,10 @@ export default function FableViewerBridge({
   selectedComponentIds,
   onInspectComponent,
 }: SpacecraftInspectionProps) {
+  const { t } = useLanguage();
   const model = useMemo(
     () => buildSpacecraftVisualModel(selectedComponentIds, visualCatalog, components),
     [selectedComponentIds],
   );
-  return <SpacecraftViewer model={model} onInspectComponent={onInspectComponent} />;
+  return <SpacecraftViewer translate={t} model={model} onInspectComponent={onInspectComponent} />;
 }
