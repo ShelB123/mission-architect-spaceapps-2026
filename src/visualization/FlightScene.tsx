@@ -1,13 +1,15 @@
 /** Presentation only: normalized scene units, exaggerated spacecraft, no flight dynamics. */
 import { Canvas, useThree } from "@react-three/fiber";
 import { useEffect, useMemo } from "react";
-import { BufferGeometry, Float32BufferAttribute, Vector3 } from "three";
+import { Vector3 } from "three";
+import { SpaceNeighborhood } from "./SpaceEnvironment";
+import type { EnvironmentId } from "./environment";
 import { Assembly } from "./SpacecraftScene";
 import type { SpacecraftVisualModel } from "./types";
 
 export interface FlightSceneProps {
   model: SpacecraftVisualModel; orbitFraction: number; eclipse: boolean; contact: boolean;
-  view: "onboard" | "chase"; onContextLost: () => void;
+  view: "onboard" | "chase"; onInspect?: (id: EnvironmentId) => void; onContextLost: () => void;
 }
 
 function ViewCamera({ phase, view, onContextLost }: { phase: number; view: FlightSceneProps["view"]; onContextLost: () => void }) {
@@ -38,28 +40,13 @@ function ViewCamera({ phase, view, onContextLost }: { phase: number; view: Fligh
 }
 
 
-function Terrain() {
-  const patches = useMemo(() => Array.from({length:9},(_,i) => {
-    const lat = Math.sin(i*8.7)*.9, lon = i*2.4;
-    const point=(a:number,r:number) => { const latitude=lat+Math.sin(a)*r; const longitude=lon+Math.cos(a)*r; return new Vector3(3.018*Math.cos(latitude)*Math.cos(longitude),3.018*Math.sin(latitude),3.018*Math.cos(latitude)*Math.sin(longitude)); };
-    const center=point(0,0), vertices:number[]=[];
-    for(let j=0;j<28;j++){const a=j*Math.PI*2/28,b=(j+1)*Math.PI*2/28;const edge=(v:number)=>point(v,(.19+i%3*.08)*(1+.28*Math.sin(5*v+i)+.13*Math.cos(9*v)));vertices.push(...center.toArray(),...edge(b).toArray(),...edge(a).toArray());}
-    const geometry=new BufferGeometry();geometry.setAttribute("position",new Float32BufferAttribute(vertices,3));geometry.computeVertexNormals();return geometry;
-  }),[]);
-  useEffect(()=>()=>patches.forEach(p=>p.dispose()),[patches]);
-  return <>{patches.map((geometry,i)=><mesh key={i} geometry={geometry}><meshStandardMaterial color={i%2 ? "#69865f" : "#4f7f6b"} roughness={1}/></mesh>)}</>;
-}
-
-function World({ model, orbitFraction, eclipse, contact, view, onContextLost }: FlightSceneProps) {
+function World({ model, orbitFraction, eclipse, contact, view, onContextLost, onInspect }: FlightSceneProps) {
   const phase = orbitFraction * Math.PI * 2;
   const stars = useMemo(() => new Float32Array(Array.from({length:160}, (_,i) => { const y=1-2*(i+.5)/160;const r=Math.sqrt(1-y*y);return [35*r*Math.cos(i*2.39996),35*y,35*r*Math.sin(i*2.39996)]; }).flat()), []);
   return <><ViewCamera phase={phase} view={view} onContextLost={onContextLost}/>
     <color attach="background" args={["#020711"]}/><ambientLight intensity={.4}/><directionalLight position={[20,4,0]} intensity={2.4}/>
     <points><bufferGeometry><bufferAttribute attach="attributes-position" args={[stars,3]}/></bufferGeometry><pointsMaterial size={.075} color="#d7ecff" sizeAttenuation/></points>
-    <mesh><sphereGeometry args={[3,64,40]}/><meshStandardMaterial color="#164d83" roughness={.85}/></mesh>
-    {/* Fictional terrain patches, not NASA imagery or a geographic coverage model. */}
-    <Terrain/>
-    <mesh><sphereGeometry args={[3.08,48,32]}/><meshBasicMaterial color="#5eb5ee" transparent opacity={.065} depthWrite={false}/></mesh>
+    <SpaceNeighborhood onInspect={onInspect}/>
     <group position={[4.2*Math.cos(phase),0,4.2*Math.sin(phase)]} rotation={[0,-phase+Math.PI/2,0]}>
       {view === "chase" && <group scale={2}><Assembly model={model} schematic={false} reducedMotion/></group>}
       {view === "chase" && contact && <mesh rotation={[Math.PI/2,0,0]}><coneGeometry args={[.15,1.1,16,1,true]}/><meshBasicMaterial color="#9fffe0" transparent opacity={.35}/></mesh>}
