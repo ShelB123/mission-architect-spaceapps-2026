@@ -29,3 +29,5 @@
 .combo-line{display:block;margin-top:6px;font-size:10px;color:#9fb4bd}
 .combo-line b{color:var(--lime);font-weight:500}
 @media(max-height:760px){.dossier .part-sketch{height:110px}}
+/* The eight-subsystem list and the dossier are taller than the panel: let the wheel scroll it. */
+.cockpit .equipment-panel.panel-scroll{overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#344952 transparent}
