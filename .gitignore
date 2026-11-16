@@ -6,3 +6,9 @@ dist/
 coverage/
 .DS_Store
 *.local
+
+# Local distribution archives; historical Windows outputs stay untracked.
+release/
+web-release/
+.desktop-stage-*/
+.desktop-check-*/

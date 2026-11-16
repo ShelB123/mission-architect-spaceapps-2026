@@ -57,8 +57,8 @@ Conclusión: es una idealización educativa de forma cerrada. No hay integració
 Tipos locales a `src/engine/orbit.ts` (no se añaden a `contracts.ts`):
 
 ```ts
-orbitStateAt(profile: OrbitProfile, timeSeconds: number): OrbitStateSample
-buildOrbitTimeline(profile: OrbitProfile, durationOrbits: number, samplesPerOrbit = 120): OrbitTimeline
+orbitStateAt(profile: OrbitProfile, timeSeconds: number, options?: OrbitStateOptions): OrbitStateSample
+buildOrbitTimeline(profile: OrbitProfile, durationOrbits: number, samplingOrOptions?: number | OrbitTimelineOptions): OrbitTimeline
 ```
 
 `OrbitStateSample`
@@ -70,6 +70,7 @@ buildOrbitTimeline(profile: OrbitProfile, durationOrbits: number, samplesPerOrbi
 | `orbitFraction` | — | Fracción de la revolución en `[0, 1)`; 0 = subsolar, 0,5 = centro del eclipse. |
 | `sunAngleRad` | rad | `2π·orbitFraction`, ángulo Sol–Tierra–nave en el sentido del movimiento. |
 | `positionKm` | km | `{x, y}` en el plano orbital, origen en el centro de la Tierra; +x hacia el Sol, +y sentido del movimiento en el punto subsolar. `x = r cos θ`, `y = r sin θ`. |
+| `velocityKmPerSecond` | km/s | `{x, y}` en el mismo marco: `v(−sin θ, cos θ)`. |
 | `illumination` | — | `"sunlight"` \| `"eclipse"`, mediante `isInEclipse`. |
 | `inGroundContact` | — | Ventana ficticia, mediante `hasGroundContact`. |
 
@@ -85,6 +86,38 @@ Reglas de uso para la vista:
 
 Coherencia con el motor de misión: `game.ts` usa `fase = (t mod T)/T`; `orbitStateAt` usa `t/T − ⌊t/T⌋` con un ajuste de 1e-12 revoluciones para que `t = k·T` devuelva `(k, 0)`. Las pruebas verifican que ambas convenciones dan la misma iluminación y contacto. La línea de tiempo no incluye batería, datos ni eventos de entrenamiento: `MissionResult` no tiene marcas de tiempo y no deben interpolarse sus historiales para alinearlos.
 
+## 4 bis. Ampliaciones opcionales (segundo incremento)
+
+Todas son funciones puras de forma cerrada en `orbit.ts`. **Ninguna está conectada al juego**: `computeOrbitProfile`, `runMission` y la UI siguen usando β = 0 y la ventana 0,78–0,96, con resultados idénticos.
+
+| Función | Qué aporta | Unidades y validez |
+|---|---|---|
+| `eclipseFractionAtBeta(r, betaDeg)` | Eclipse para un ángulo beta fijo: `f = acos(√(r² − R²)/(r·cos β))/π` si `\|β\| < asin(R/r)`, y 0 en otro caso. | r en km, β en grados en `[−90, 90]`. Con β = 0 es bit a bit igual al perfil de misión. β se mantiene constante: no se modela su deriva estacional ni por precesión. |
+| `criticalBetaDeg(r)` | `asin(R/r)`: por encima, la órbita idealizada no tiene eclipse. | grados. |
+| `withBetaAngle(profile, betaDeg)` | Copia del perfil con las fracciones de eclipse y luz recalculadas. | No muta la entrada. |
+| `buildOrbitTimeline(profile, n, { betaDeg, contactWindow, samplesPerOrbit })` | La línea de tiempo acepta opciones; el tercer argumento numérico sigue funcionando. `model.betaDeg` y `model.kind` indican qué se usó, y `model.notice` cambia de texto. | Con β ≠ 0, +x es la proyección del Sol sobre el plano orbital y el Sol queda β grados por encima del plano. |
+| `velocityKmPerSecond` en cada muestra | Vector velocidad para orientar el icono de la nave. | km/s, mismo marco; módulo constante y perpendicular a la posición. |
+| `nextOrbitEvents(profile, t, options)` | Cuentas atrás hasta la próxima entrada y salida de eclipse y de contacto. | s, siempre > 0; una transición que ocurre justo ahora se informa un período después. `null` si no hay eclipse. |
+| `computeOrbitFacts(profile)` | Revoluciones por día (`86400/T`), distancia al horizonte (`√(r² − R²)`), ángulo central al horizonte (`acos(R/r)`), fracción de superficie visible (`(1 − R/r)/2`), beta crítico y segundos de eclipse por órbita. | Esfera sin refracción ni máscara de elevación: es geometría, no cobertura de un instrumento ni de una estación. |
+| `orbitValidityNotes(profile, durationOrbits?)` | Avisos en lenguaje llano: arrastre no modelado, altitud por encima de LEO, dirección solar fija en misiones de más de un día. | Los umbrales (300 km, 2 000 km, 86 400 s) son **criterios de aviso del juego**, no límites físicos ni valores de NASA. Solo informan; no cambian resultados. |
+| `hasGroundContact(fase, window?)` y `DEFAULT_CONTACT_WINDOW` | Ventana de contacto parametrizable para escenarios. | `0 ≤ inicio < fin ≤ 1`. Sigue siendo ficticia con cualquier valor. |
+
+Valores de referencia de beta (calculados fuera del motor, Python):
+
+| Altitud (km) | β (°) | Fracción de eclipse | Eclipse (min) |
+|---:|---:|---:|---:|
+| 450 | 0 | 0,383731 | 35,8557 |
+| 450 | 30 | 0,364669 | 34,0746 |
+| 450 | 60 | 0,246698 | 23,0514 |
+| 450 | 69 | 0,025687 | 2,4002 |
+| 450 | 70 | 0 | 0 |
+| 1 000 | 30 | 0,302771 | 31,7807 |
+| 1 000 | 60 | 0 | 0 |
+
+Beta crítico: 69,07° a 450 km y 59,81° a 1 000 km. Las pruebas comprueban además que la iluminación de la línea de tiempo coincide con la prueba geométrica 3D de sombra cilíndrica para varios β.
+
+Para que β afecte a la energía de la misión harían falta cambios de otros propietarios, **no aplicados**: un campo opcional en `MissionConfig` (integrador), que `game.ts` y `resources.ts` usen `withBetaAngle` (integrantes 5 y 3) y un control en la UI. Hasta entonces β solo existe como herramienta de exploración.
+
 ## 5. Alternativa más sencilla considerada
 
 Bastaría con que la vista calculase `θ = 2π·t/T` por su cuenta. Se descarta porque duplicaría la convención de fase y la ventana de eclipse fuera del motor, lo que AGENTS.md prohíbe. La solución adoptada es la mínima que lo evita: dos funciones puras sin dependencias nuevas.
@@ -98,4 +131,4 @@ Bastaría con que la vista calculase `θ = 2π·t/T` por su cuenta. Se descarta 
 
 ## 7. Pruebas de aceptación
 
-`npm run build` y `npm test` (50 pruebas en `tests/orbit.test.ts`): valores de referencia, identidades de dos cuerpos, dominio y no finitos, fronteras inclusiva/exclusiva, periodicidad, coincidencia de `illumination` con la prueba geométrica `x < 0 ∧ |y| < R`, coherencia muestras–intervalos, determinismo y no mutación de la entrada.
+`npm run build` y `npm test` (pruebas en `tests/orbit.test.ts`): valores de referencia, identidades de dos cuerpos, dominio y no finitos, fronteras inclusiva/exclusiva, periodicidad, coincidencia de `illumination` con la prueba geométrica `x < 0 ∧ |y| < R`, coherencia muestras–intervalos, determinismo y no mutación de la entrada.

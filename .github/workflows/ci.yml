@@ -1,9 +1,9 @@
 name: Build and test
 on:
   push:
-    branches: [main, "feature/**"]
+    branches: [main, "feature/**", "integration/**"]
   pull_request:
-    branches: [main, "feature/**"]
+    branches: [main, "feature/**", "integration/**"]
   workflow_dispatch:
 
 permissions:

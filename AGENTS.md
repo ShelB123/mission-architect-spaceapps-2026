@@ -1,5 +1,11 @@
 # Mission Architect — AI agent collaboration rules
 
+## Current delivery priority
+- Continue the browser game on integration/web-rc-20261115 with the merged orbital and Cloudflare improvements.
+- Windows branch/Release v0.2.0-rc.1 is historical, not the active delivery target. Do not restore Electron into the web branch unless explicitly requested.
+- Preserve Git history and checkpoints. After verified changes, open the game in Brave for the user; do not substitute the integrated browser.
+- The model owner refines 3D through the existing presentation interfaces; no physics from geometry.
+
 ## Goal
 Produce a working, scientifically defensible educational LEO mission-design game for NASA Space Apps Challenge 2026.
 
