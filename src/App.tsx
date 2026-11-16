@@ -7,7 +7,7 @@ import { assessScenarioDesign } from "./ui/assessScenarioDesign";
 import { useMissionSession } from "./ui/useMissionSession";
 import { SpacecraftPreview, type SpacecraftInspectionLoader } from "./ui/SpacecraftPreview";
 import { InfoTip } from "./ui/InfoTip";
-import { DetailDialog } from "./ui/DetailDialog";
+import { DetailDialog, type DetailReport } from "./ui/DetailDialog";
 import { MissionPurpose } from "./ui/MissionPurpose";
 import { compareCameraDecision } from "./ui/decisionPreview";
 import { missionDiagnosis } from "./ui/missionDiagnosis";
@@ -17,6 +17,8 @@ import { FlightView } from "./ui/FlightView";
 import { MissionOrbit } from "./ui/MissionOrbit";
 import { challenges, challengeStart } from "./ui/challenges";
 import type { ComponentCategory, MissionPhase, SpaceComponent } from "./types/contracts";
+import { missionDesignGuide, tropicsOrbit } from "./data/nasaReferences";
+import "./ui/nasa-references.css";
 
 const steps: { phase: MissionPhase; label: string }[] = [
   { phase: "briefing", label: "Briefing" }, { phase: "design", label: "Design" },
@@ -58,7 +60,7 @@ function MissionApp({ loadSpacecraftViewer, initialAssisted = true }: AppProps) 
   const [planTab, setPlanTab] = useState("flight");
   const [consoleTab, setConsoleTab] = useState("data");
   const [helpPage, setHelpPage] = useState(0);
-  const [detail, setDetail] = useState<{ title: string; lines: readonly string[] } | null>(null);
+  const [detail, setDetail] = useState<DetailReport | null>(null);
   const { mission, scenarioId, selectScenario, seed, changeSeed, phase, result, replay, frame, cursor, duration, paused, setPaused,
     speed, setSpeed, previousAttempt, error, updateMission, navigate, launch, reset, improveDesign, commandCamera, finish, pendingDecision, resolveDecision, nextDecision } = session;
   const [inspected, setInspected] = useState("camera-basic");
@@ -86,6 +88,7 @@ function MissionApp({ loadSpacecraftViewer, initialAssisted = true }: AppProps) 
   const scenario = missionScenarios[scenarioId], challenge = challenges[scenarioId];
   const design = useMemo(() => assessScenarioDesign(mission, scenarioId), [mission, scenarioId]);
   const orbit = useMemo(() => computeOrbitProfile(mission), [mission.altitudeKm]);
+  const atTropicsAltitude = mission.altitudeKm === tropicsOrbit.altitudeKm;
   const highlighted = components.find(c => c.id === inspected) ?? components[0];
   const equipped = components.find(c => c.category === highlighted.category && mission.selectedComponentIds.includes(c.id)) ?? highlighted;
   const justChanged = mission.selectedComponentIds.includes(highlighted.id) && lastChange?.to === highlighted.id;
@@ -98,6 +101,20 @@ function MissionApp({ loadSpacecraftViewer, initialAssisted = true }: AppProps) 
     if (equippedFor(category).id !== id) setLastChange({ from: equippedFor(category), to: id });
     updateMission(prev => ({ ...prev, selectedComponentIds: [...prev.selectedComponentIds.filter(item => components.find(c => c.id === item)?.category !== category), id] }));
     setInspected(id);
+  }
+
+  function showMissionSegments() {
+    const radioRate = equippedFor("communications")?.downlinkMBperMinute ?? 0;
+    setDetail({
+      title: "NASA mission segments",
+      source: missionDesignGuide,
+      lines: [
+        `${t("Launch segment")} · ${design.totalMassKg} / ${design.massLimitKg} kg. ${t("The launch vehicle must carry the spacecraft within its mass limit.")}`,
+        `${t("Space segment")} · ${design.batteryCapacityWh} Wh. ${t("The spacecraft uses this battery reserve when its solar array is in shadow.")}`,
+        `${t("Ground segment")} · ${radioRate} MB/min. ${t("This is the selected radio's nominal rate. Downlink happens during simulated ground contacts.")}`,
+        `${t("User segment")} · ${scenario.targetMB} MB. ${t("The science team receives data after downlink. Only data received on Earth count toward this goal.")}`,
+      ],
+    });
   }
   useEffect(()=>{setWorkspaceTab("equipment");},[phase]);
   useEffect(()=>{if(pendingDecision)setWorkspaceTab("equipment");},[pendingDecision?.id]);
@@ -142,7 +159,25 @@ function MissionApp({ loadSpacecraftViewer, initialAssisted = true }: AppProps) 
         <aside className="plan-panel panel-scroll"><div className="eyebrow">{t("03 / PLAN")}</div><h2>{t("Flight plan")}</h2><div className="plan-tabs"><button aria-pressed={planTab==="flight"} onClick={()=>setPlanTab("flight")}>{t("Orbit")}</button><button aria-pressed={planTab==="launch"} onClick={()=>setPlanTab("launch")}>{t("Launch")}</button><button aria-pressed={planTab==="seed"} onClick={()=>setPlanTab("seed")}>{t("Replay seed & model")}</button></div><div className="plan-page" data-active={planTab==="flight"}>
           <label className="range-label" htmlFor="altitude">{t("Orbit altitude ")}<strong>{mission.altitudeKm} {t("km")}</strong></label><input id="altitude" type="range" min="250" max="1000" step="50" value={mission.altitudeKm} onChange={e => updateMission(m => ({...m,altitudeKm:Number(e.target.value)}))}/>
           <label className="range-label" htmlFor="duration">{t("Mission duration ")}<strong>{mission.durationOrbits} {t("orbits")}</strong></label><input id="duration" type="range" min="1" max="30" step="1" value={mission.durationOrbits} onChange={e => updateMission(m => ({...m,durationOrbits:Number(e.target.value)}))}/>
-          <small>{t("Deadline: ")}{scenario.maxOrbits} {t("orbits")}</small></div><div className="plan-page" data-active={planTab==="launch"}><h3 className="launcher-label">{t("Launch strategy")}</h3>{launchers.map(l => <button className={`launcher-card ${l.id === mission.launcherId ? "selected" : ""}`} key={l.id} aria-pressed={l.id===mission.launcherId} onClick={() => updateMission(m=>({...m,launcherId:l.id}))}><strong>{t(l.name)}</strong><small>{l.costCredits} {t("cr · ")}{l.massLimitKg} {t("kg limit")}</small></button>)}
+           <small>{t("Deadline: ")}{scenario.maxOrbits} {t("orbits")}</small>
+           <section className="orbit-reference" aria-label={t("NASA orbit reference")}>
+             <div className="orbit-reference-actions">
+               <button
+                 type="button"
+                 aria-disabled={atTropicsAltitude}
+                 onClick={() => {
+                   if (!atTropicsAltitude) {
+                     updateMission(current => ({ ...current, altitudeKm: tropicsOrbit.altitudeKm }));
+                   }
+                 }}
+               >
+                 {t("Use TROPICS altitude")} · ≈{tropicsOrbit.altitudeKm} {t("km")}
+               </button>
+               <a className="nasa-source-link" href={tropicsOrbit.url} aria-label={t("NASA TROPICS mission facts")} target="_blank" rel="noreferrer">NASA ↗</a>
+             </div>
+             <small>{t("Circular-orbit period")} · <output aria-live="polite">{(orbit.periodSeconds / 60).toFixed(1)} {t("min")}</output></small>
+           </section>
+           </div><div className="plan-page" data-active={planTab==="launch"}><h3 className="launcher-label">{t("Launch strategy")}</h3>{launchers.map(l => <button className={`launcher-card ${l.id === mission.launcherId ? "selected" : ""}`} key={l.id} aria-pressed={l.id===mission.launcherId} onClick={() => updateMission(m=>({...m,launcherId:l.id}))}><strong>{t(l.name)}</strong><small>{l.costCredits} {t("cr · ")}{l.massLimitKg} {t("kg limit")}</small></button>)}
           <div className="mini-readout"><span>{t("Battery capacity")}</span><strong>{design.batteryCapacityWh} {t("Wh")}</strong></div><div className="mini-readout"><span>{t("Orbit period")}</span><strong>{(orbit.periodSeconds/60).toFixed(1)} {t("min")}</strong></div>
           </div><div className="plan-page" data-active={planTab==="seed"}><label className="seed-label">{t("Replay seed")}<input type="number" min="0" max="4294967295" value={seed} onChange={e=>changeSeed(Number(e.target.value))}/></label><p>{t("Identical design, seed and commands reproduce the outcome. Hardware values and contacts are synthetic.")}</p></div>
         </aside>
@@ -152,7 +187,10 @@ function MissionApp({ loadSpacecraftViewer, initialAssisted = true }: AppProps) 
         <div className="checks"><div><span>{t("Science return target")}</span><strong>{scenario.targetMB} {t("MB")}</strong></div><div><span>{t("Mission budget")}</span><strong>{design.totalCostCredits} {t("credits")}</strong><small>{t("Limit ")}{scenario.budgetCredits} {t("credits")}</small></div><div><span>{t("Planned duration")}</span><strong>{mission.durationOrbits} {t("orbits")}</strong><small>{t("Maximum ")}{scenario.maxOrbits} {t("orbits")}</small></div></div>
         {design.violations.map(v=><p className="violation" key={v}>× {t(v)}</p>)}
         {!design.violations.length && <p className="ready-message">{t("✓ Hard constraints cleared. Your design still needs to survive the mission.")}</p>}
-        <button className="secondary details-button" onClick={()=>setDetail({title:"Engineering hints",lines:design.warnings})}>{t("Engineering hints (")}{design.warnings.length})</button>
+         <div className="review-details-actions">
+           <button className="secondary details-button" onClick={()=>setDetail({title:"Engineering hints",lines:design.warnings})}>{t("Engineering hints (")}{design.warnings.length})</button>
+           <button className="secondary details-button" onClick={showMissionSegments}>{t("NASA mission segments")}</button>
+         </div>
         <label className="guided-toggle"><input type="checkbox" checked={assisted} onChange={e=>setAssisted(e.target.checked)}/>{t("Commander mode: stop for decisions")}</label><small>{t("Turn off for uninterrupted replay. Both modes use the same physics.")}</small>
         <div className="control-tip"><span>⌁</span><p>{t("During flight, turn the camera off to save energy. You can still transmit stored data, but you will stop making new observations.")}</p></div>
       </section></div>}
@@ -187,7 +225,7 @@ function MissionApp({ loadSpacecraftViewer, initialAssisted = true }: AppProps) 
       {phase === "briefing" && <span className="footer-note">{t("DESIGN → FLY → DISCOVER → IMPROVE")}</span>}
     </div></footer>
     {purpose && <MissionPurpose onClose={()=>setPurpose(false)} onStart={()=>{setRiverwatch(true);setPurpose(false);setLastChange(null);updateMission(()=>challengeStart("survey"));navigate("design");}}/>}
-    {detail && <DetailDialog title={detail.title} lines={detail.lines} onClose={()=>setDetail(null)}/>}
+    {detail && <DetailDialog {...detail} onClose={()=>setDetail(null)}/>}
     {help && <div ref={helpPanel} className="help-overlay" role="dialog" aria-modal="true" aria-label={t("How to play")}><section><button className="icon-button close-help" onClick={()=>setHelp(false)} aria-label={t("Close help")}>×</button><div className="eyebrow">{t("FLIGHT MANUAL")}</div><h2>{t("A mission, not a perfect satellite.")}</h2><div className="help-page" data-active={helpPage===0}><p>{t("Choose a challenge. Equip your satellite. Review the limits, then watch it fly. Switch the camera off to conserve energy, or keep observing to build up data.")}</p></div><div className="help-page" data-active={helpPage===1}><p>{t("Only data received on Earth count. A large camera needs enough power and a radio that can deliver its observations.")}</p></div><div className="help-page" data-active={helpPage===2}><p>{t("All hardware, budgets and training events are synthetic. Orbit and contact geometry are idealized. MB measure quantity, not scientific quality. The 3D model is a schematic and never determines the physics.")}</p></div><div className="help-page" data-active={helpPage===3}><p>{t("No camera power savings are assumed during automatic calibration. A manual camera-off command removes its entire nominal load; bus and radio stay on.")}</p></div><div className="help-pagination"><button disabled={helpPage===0} onClick={()=>setHelpPage(p=>p-1)}>{t("Previous")}</button><span>{helpPage+1}/4</span><button disabled={helpPage===3} onClick={()=>setHelpPage(p=>p+1)}>{t("Next")}</button></div><button className="primary" onClick={()=>setHelp(false)}>{t("Back to the mission")}</button></section></div>}
   </div>;
   function equippedFor(category: ComponentCategory) { return components.find(c=>c.category===category && mission.selectedComponentIds.includes(c.id))!; }

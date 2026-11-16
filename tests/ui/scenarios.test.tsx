@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "../../src/App";
 import { defaultMission } from "../../src/data/catalog";
@@ -18,6 +18,40 @@ beforeEach(() => vi.useFakeTimers());
 afterEach(() => { cleanup(); vi.clearAllTimers(); vi.useRealTimers(); vi.restoreAllMocks(); });
 
 describe("scenario controls", () => {
+  it("applies the published TROPICS altitude and links the NASA review framework to the active design", () => {
+    const run = vi.spyOn(game, "replayMission");
+    render(<App initialAssisted={false} />);
+    click(/Begin engineering/);
+    fireEvent.change(screen.getByLabelText(/Mission duration/), { target: { value: "7" } });
+    const reference = within(screen.getByRole("region", { name: "NASA orbit reference" }));
+    expect(reference.getByText("93.4 min")).toBeTruthy();
+
+    click(/Use TROPICS altitude.*550 km/);
+    expect((screen.getByLabelText(/Orbit altitude/) as HTMLInputElement).value).toBe("550");
+    expect(reference.getByText("95.5 min")).toBeTruthy();
+    expect(reference.getByRole("link", { name: "NASA TROPICS mission facts" }).getAttribute("href")).toContain("/mission-facts-about-nasas-tropics/");
+
+    click(/Review engineering/);
+    click(/NASA mission segments/);
+    const dialog = screen.getByRole("dialog", { name: "NASA mission segments" });
+    const guide = within(dialog);
+    expect(guide.getByText(/Launch segment · 20 \/ 28 kg/)).toBeTruthy();
+    expect(guide.getByRole("link", { name: /NASA design guide/ }).getAttribute("href")).toContain(".pdf#page=8");
+    fireEvent.click(guide.getByRole("button", { name: "Next" }));
+    expect(guide.getByText(/Space segment · 110 Wh/)).toBeTruthy();
+    fireEvent.click(guide.getByRole("button", { name: "Next" }));
+    expect(guide.getByText(/Ground segment · 3.5 MB\/min/)).toBeTruthy();
+    fireEvent.click(guide.getByRole("button", { name: "Next" }));
+    expect(guide.getByText(/User segment · 250 MB/)).toBe(document.activeElement);
+    fireEvent.keyDown(document.activeElement!, { key: "Escape" });
+    expect(screen.queryByRole("dialog", { name: "NASA mission segments" })).toBeNull();
+    expect(run).not.toHaveBeenCalled();
+
+    click(/Launch simulation/);
+    act(() => vi.advanceTimersByTime(450));
+    expect(run).toHaveBeenCalledExactlyOnceWith({ ...defaultMission, altitudeKm: 550, durationOrbits: 7 }, 2026, "survey");
+  });
+
   it.each(scenarioIds)("launches %s with the actual engine scenario and displays its limits", (id) => {
     const run = vi.spyOn(game, "replayMission");
     render(<App initialAssisted={false} />);
