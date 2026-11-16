@@ -1,0 +1,28 @@
+name: Error del juego
+description: Reporta un fallo reproducible en Windows o navegador.
+title: "[Error] "
+labels: [bug]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Version y plataforma
+      placeholder: v0.2.0-rc.1, Windows 11 x64 / Brave
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Pasos, resultado observado y resultado esperado
+    validations:
+      required: true
+  - type: textarea
+    id: mission
+    attributes:
+      label: Escenario, semilla, componentes y ordenes
+      description: Incluye capturas si ayudan. Evita datos personales.
+  - type: textarea
+    id: graphics
+    attributes:
+      label: Graficos y equipo
+      description: Indica si fallan 3D, camaras o texturas, GPU si la conoces y si funciona 2D.

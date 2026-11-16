@@ -1,0 +1,16 @@
+name: Propuesta de mejora
+description: Sugiere una mejora del juego o del aprendizaje.
+title: "[Propuesta] "
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Que problema encuentra el jugador
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: Propuesta y como comprobar que mejora la experiencia
+    validations:
+      required: true

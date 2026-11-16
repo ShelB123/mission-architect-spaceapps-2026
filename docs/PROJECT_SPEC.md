@@ -1,5 +1,7 @@
 # Project specification — Mission Architect 2.0
 
+> Estado actual de entrega: ver [README](../README.md), [comparación de ramas](VERSION_COMPARISON.md) y [QA Windows](WINDOWS_QA.md). Las secciones de planificación siguientes describen la base histórica; la candidata actual ya integra el visor, operaciones 3D y distribución de escritorio.
+
 ## Challenge
 NASA Space Apps Challenge 2026 — Space Mission Design Game.
 

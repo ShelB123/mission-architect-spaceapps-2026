@@ -1,7 +1,7 @@
 {
   "name": "mission-architect-spaceapps-2026",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0-rc.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -9,7 +9,10 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "audit": "npm audit"
+    "audit": "npm audit",
+    "desktop:dev": "electron .",
+    "package:win": "npm run build && node scripts/package-windows.mjs",
+    "verify:package": "node scripts/verify-package.mjs"
   },
   "dependencies": {
     "@react-three/fiber": "9.8.2",
@@ -18,21 +21,31 @@
     "three": "0.187.0"
   },
   "devDependencies": {
+    "@electron/asar": "4.3.2",
+    "@electron/packager": "20.3.0",
     "@tailwindcss/vite": "^4.1.0",
     "@testing-library/dom": "10.4.2",
     "@testing-library/react": "16.3.3",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "@types/three": "0.187.0",
     "@vitejs/plugin-react": "^5.0.0",
+    "electron": "45.3.2",
+    "fflate": "0.8.3",
     "jsdom": "31.0.1",
     "tailwindcss": "^4.1.0",
     "typescript": "~5.9.0",
     "vite": "^7.0.0",
-    "vitest": "4.1.12",
-    "@types/three": "0.187.0"
+    "vitest": "4.1.12"
   },
   "engines": {
     "node": "^22.22.2 || ^24.15.0 || >=26.0.0"
   },
-  "packageManager": "npm@12.2.2"
+  "packageManager": "npm@12.2.2",
+  "description": "Educational space mission design game for NASA Space Apps Challenge 2026",
+  "author": "Mission Architect team",
+  "main": "desktop/main.cjs",
+  "allowScripts": {
+    "esbuild@0.28.2": true
+  }
 }

@@ -6,3 +6,8 @@ dist/
 coverage/
 .DS_Store
 *.local
+
+# Desktop distribution outputs (publish using Releases)
+release/
+.desktop-stage-*/
+.desktop-check-*/

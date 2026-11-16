@@ -1,5 +1,7 @@
 # Trabajo e integración del equipo de seis
 
+> Estado actual de entrega: ver [README](../README.md), [comparación de ramas](VERSION_COMPARISON.md) y [QA Windows](WINDOWS_QA.md). Las secciones de planificación siguientes describen la base histórica; la candidata actual ya integra el visor, operaciones 3D y distribución de escritorio.
+
 Estado: instrucciones para la siguiente iteración; no evidencia de que el visor ya exista.
 Consultar primero AGENTS.md, PROJECT_SPEC.md, ARCHITECTURE.md y contracts.ts.
 

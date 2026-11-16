@@ -1,5 +1,7 @@
 # Arquitectura de Mission Architect 2.0
 
+> Estado actual de entrega: ver [README](../README.md), [comparación de ramas](VERSION_COMPARISON.md) y [QA Windows](WINDOWS_QA.md). Las secciones de planificación siguientes describen la base histórica; la candidata actual ya integra el visor, operaciones 3D y distribución de escritorio.
+
 Estado: diseño para implementación posterior. Este PR solo modifica documentación.
 Base inspeccionada: `feature/initial-game-scaffold`, commit `1092772980cb2ff526432e97037da5e23ba42bbc` (14-11-2026).
 `main` contiene únicamente README.md en `23fbb8f43da7f620141da747fae1bab1dcc6a1af`; el MVP está en el PR #1.
