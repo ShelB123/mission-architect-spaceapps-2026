@@ -13,6 +13,7 @@
  * Frame: metres, +Y up, +X solar-panel side, +Z model front. The bus is a
  * 0.10 × 0.30 × 0.10 schematic CubeSat-style body centred on the origin.
  */
+import { extraVisualDefinitions } from "./catalogExtra";
 import type { ComponentVisualDefinition, Vec3, VisualCatalog, VisualFinish, VisualKind, VisualPart } from "./types";
 
 const NO_ROTATION: Vec3 = [0, 0, 0];
@@ -207,4 +208,5 @@ export const visualCatalog: VisualCatalog = deepFreeze({
   "battery-double": batteryDouble,
   "radio-basic": radioBasic,
   "radio-advanced": radioAdvanced,
+  ...Object.fromEntries(extraVisualDefinitions.map(definition => [definition.componentId, definition])),
 });
