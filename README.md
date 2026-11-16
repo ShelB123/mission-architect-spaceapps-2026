@@ -35,7 +35,8 @@ La compilación genera dist/ con HTML, JS, CSS y texturas locales. Publica **el 
 ## Funciones conservadas
 
 - Cuatro escenarios con objetivos, presupuestos y plazos; flujo misión → diseño → revisión → operaciones → resultados.
-- Construcción con cámara, radio, batería y paneles; masa, coste y potencia calculados por los motores.
+- Construcción con 64 piezas en ocho subsistemas. Pulsa **i** en cualquier tarjeta para ver su dibujo, cómo funciona y cuándo elegirla. [Referencia de tecnología de satélites pequeños de la NASA](https://www.nasa.gov/smallsat-institute/sst-soa/)
+- El vuelo y el mapa 2D interpolan la posición entre actualizaciones de la simulación. Las cifras de energía, datos y contactos proceden de los pasos del motor.
 - Inspección de satélite procedural 3D y esquema, cámaras Seguir satélite y Cámara a bordo, órbita 2D. Tierra Blue Marble, Luna LROC y explorador de ISS y otros objetos.
 - Semilla reproducible, eventos de calibración y estación no disponible, órdenes de cámara, pausas del modo comandante y comparación calculada de decisiones.
 - Riverwatch, diagnóstico al terminar, comparación entre intentos, español/inglés, ayuda opcional y recuperación de 3D.

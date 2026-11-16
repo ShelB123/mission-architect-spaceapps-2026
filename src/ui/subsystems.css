@@ -1,0 +1,21 @@
+/* Eight-subsystem equipment panel and component dossier. Prefixed with .cockpit to win over the base sheets. */
+.cockpit .equipment-tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}
+.cockpit .equipment-tabs button{padding:6px 2px;font-size:15px;line-height:1.1}
+.cockpit .equipment-tabs small{font-size:8.5px;margin-top:3px;overflow:hidden;text-overflow:ellipsis}
+.cockpit .equipment-options{grid-template-columns:1fr 1fr;gap:6px}
+.cockpit .equipment-card{display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;gap:3px;min-height:62px;padding:7px 8px}
+.cockpit .equipment-card strong{font-size:10.5px;line-height:1.25}
+.cockpit .equipment-card small{font-size:9.5px}
+.cockpit .equipment-card>span{font-size:8px}
+.dossier-combos{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.dossier-combos li{border:1px dashed #2c444e;border-radius:3px;padding:6px 8px}
+.dossier-combos li[data-active=true]{border:1px solid var(--lime);background:#1a2a1c}
+.dossier-combos b{font-size:11px;color:var(--ink)}
+.dossier-combos i{font:normal 9.5px Consolas,monospace;color:var(--lime)}
+.dossier-combos p{font-size:10px;margin:2px 0}
+.dossier-combos small{font-size:9px;color:#8fa6b0}
+.dossier-combos li[data-active=true] small{color:var(--lime);letter-spacing:.6px}
+.combo-line{display:block;margin-top:6px;font-size:10px;color:#9fb4bd}
+.combo-line b{color:var(--lime);font-weight:500}
+/* The equipment list can extend below the panel on shorter screens. */
+.cockpit .equipment-panel.panel-scroll{overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#344952 transparent}

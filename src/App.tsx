@@ -1,6 +1,9 @@
 import { LanguageProvider, LanguageSelector, useLanguage } from "./i18n/Language";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { categoryOrder, components, launchers } from "./data/catalog";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { categoryOrder, components, launchers, synergies } from "./data/catalog";
+import { designEffects, getSelectedComponents } from "./engine/resources";
+import { ComponentGuide, effectSummary } from "./ui/ComponentDossier";
+import { componentLessons } from "./data/componentLessons";
 import { computeOrbitProfile } from "./engine/orbit";
 import { missionScenarios, type MissionScenarioId } from "./engine/game";
 import { assessScenarioDesign } from "./ui/assessScenarioDesign";
@@ -15,6 +18,7 @@ import { DecisionCard } from "./ui/DecisionCard";
 import { ScienceArchive } from "./ui/ScienceArchive";
 import { FlightView } from "./ui/FlightView";
 import { MissionOrbit } from "./ui/MissionOrbit";
+import { useDesignApproach } from "./ui/useDesignApproach";
 import { challenges, challengeStart } from "./ui/challenges";
 import type { ComponentCategory, MissionPhase, SpaceComponent } from "./types/contracts";
 import { missionDesignGuide, tropicsOrbit } from "./data/nasaReferences";
@@ -27,6 +31,18 @@ const steps: { phase: MissionPhase; label: string }[] = [
 const categories: Record<ComponentCategory, { label: string; glyph: string }> = {
   payload: { label: "Camera", glyph: "◉" }, solar: { label: "Solar array", glyph: "☀" },
   battery: { label: "Battery", glyph: "▥" }, communications: { label: "Radio", glyph: "⌁" },
+  attitude: { label: "Attitude", glyph: "⟲" }, computer: { label: "Computer", glyph: "▣" },
+  thermal: { label: "Thermal", glyph: "❄" }, propulsion: { label: "Propulsion", glyph: "▲" },
+};
+const categoryInfo: Record<ComponentCategory, string> = {
+  payload: "The camera produces observations in MB/min. A faster instrument needs more power. Acquisition stops when you turn it off.",
+  solar: "Panels generate electricity in sunlight. The two-unit kit doubles the basic array generation, mass and price; it does not generate during eclipse.",
+  battery: "Batteries store energy in Wh. Two basic units double capacity, mass and price. A larger reserve cannot fix a permanent generation deficit.",
+  communications: "The radio sends stored observations during contact. A higher MB/min rate clears data faster, but adds mass, cost and power demand.",
+  attitude: "Attitude control points the satellite. Steadier pointing makes more of each observation usable (a synthetic science bonus). One optional unit; the bus includes a basic one.",
+  computer: "The onboard computer stores and prepares data. Compression raises the effective downlink; robust computers shorten calibration pauses. One optional unit.",
+  thermal: "Thermal control keeps every part within its temperature range. Batteries kept warm hold more usable energy (a synthetic capacity bonus). One optional unit.",
+  propulsion: "Propulsion adjusts the orbit. In this game it shortens the ground-station outage by re-phasing toward a backup station (a synthetic rule). One optional unit.",
 };
 const signed = (n: number) => `${n > 0 ? "+" : ""}${Number(n.toFixed(1))}`;
 function Meter({ title, value, caption, info, ratio = 0, warn = false }: { title: string; value: string; caption: string; info: string; ratio?: number; warn?: boolean }) {
@@ -37,20 +53,22 @@ function capability(c: SpaceComponent) {
   if (c.category === "payload") return `${c.scienceMBperMinute} MB/min`;
   if (c.category === "solar") return `${c.solarGenerationW} W generation`;
   if (c.category === "battery") return `${c.batteryCapacityWh} Wh reserve`;
-  return `${c.downlinkMBperMinute} MB/min`;
+  if (c.category === "communications") return `${c.downlinkMBperMinute} MB/min`;
+  return effectSummary(c);
 }
 function capabilityDelta(next: SpaceComponent, prior: SpaceComponent) {
   if (next.category === "payload") return `${signed((next.scienceMBperMinute ?? 0)-(prior.scienceMBperMinute ?? 0))} MB/min acquisition`;
   if (next.category === "solar") return `${signed((next.solarGenerationW ?? 0)-(prior.solarGenerationW ?? 0))} W generation`;
   if (next.category === "battery") return `${signed((next.batteryCapacityWh ?? 0)-(prior.batteryCapacityWh ?? 0))} Wh reserve`;
-  return `${signed((next.downlinkMBperMinute ?? 0)-(prior.downlinkMBperMinute ?? 0))} MB/min downlink`;
+  if (next.category === "communications") return `${signed((next.downlinkMBperMinute ?? 0)-(prior.downlinkMBperMinute ?? 0))} MB/min downlink`;
+  return effectSummary(next);
 }
 export interface AppProps { readonly loadSpacecraftViewer?: SpacecraftInspectionLoader; readonly initialAssisted?: boolean }
 export default function App(props: AppProps = {}) {
   return <LanguageProvider><MissionApp {...props}/></LanguageProvider>;
 }
 function MissionApp({ loadSpacecraftViewer, initialAssisted = true }: AppProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [purpose,setPurpose]=useState(false);
   const [riverwatch,setRiverwatch]=useState(false);
   const [assisted, setAssisted] = useState(initialAssisted);
@@ -61,8 +79,12 @@ function MissionApp({ loadSpacecraftViewer, initialAssisted = true }: AppProps) 
   const [consoleTab, setConsoleTab] = useState("data");
   const [helpPage, setHelpPage] = useState(0);
   const [detail, setDetail] = useState<DetailReport | null>(null);
+  const [guide, setGuide] = useState<SpaceComponent | null>(null);
   const { mission, scenarioId, selectScenario, seed, changeSeed, phase, result, replay, frame, cursor, duration, paused, setPaused,
-    speed, setSpeed, previousAttempt, error, updateMission, navigate, launch, reset, improveDesign, commandCamera, finish, pendingDecision, resolveDecision, nextDecision } = session;
+    speed, setSpeed, previousAttempt, error, updateMission, navigate: navigatePhase, launch, reset, improveDesign, commandCamera, finish, pendingDecision, resolveDecision, nextDecision } = session;
+  const prepareApproach = useDesignApproach(phase);
+  const entersDesignFromBriefing = useRef(false);
+  const pauseForExplorer = useCallback(() => setPaused(true), [setPaused]);
   const [inspected, setInspected] = useState("camera-basic");
   const [hintLevel, setHintLevel] = useState(0);
   const [help, setHelp] = useState(false);
@@ -90,8 +112,10 @@ function MissionApp({ loadSpacecraftViewer, initialAssisted = true }: AppProps) 
   const orbit = useMemo(() => computeOrbitProfile(mission), [mission.altitudeKm]);
   const atTropicsAltitude = mission.altitudeKm === tropicsOrbit.altitudeKm;
   const highlighted = components.find(c => c.id === inspected) ?? components[0];
-  const equipped = components.find(c => c.category === highlighted.category && mission.selectedComponentIds.includes(c.id)) ?? highlighted;
-  const justChanged = mission.selectedComponentIds.includes(highlighted.id) && lastChange?.to === highlighted.id;
+  const equipped = equippedFor(highlighted.category);
+  const highlightedEquipped = equipped.id === highlighted.id;
+  const effects = useMemo(() => designEffects(getSelectedComponents(mission)), [mission.selectedComponentIds]);
+  const justChanged = highlightedEquipped && lastChange?.to === highlighted.id;
   const deltaBase = justChanged && lastChange ? lastChange.from : equipped;
   const telemetry = phase === "operations" ? frame : phase === "debrief" ? replay?.frames.at(-1) : undefined;
   const returned = telemetry?.transmittedMB ?? 0;
@@ -116,7 +140,18 @@ function MissionApp({ loadSpacecraftViewer, initialAssisted = true }: AppProps) 
       ],
     });
   }
-  useEffect(()=>{setWorkspaceTab("equipment");},[phase]);
+  function navigate(next: Exclude<MissionPhase, "operations">) {
+    if (phase === "briefing" && next === "design") {
+      prepareApproach();
+      entersDesignFromBriefing.current = true;
+      setWorkspaceTab("view");
+    }
+    navigatePhase(next);
+  }
+  useEffect(() => {
+    if (!entersDesignFromBriefing.current) setWorkspaceTab("equipment");
+    entersDesignFromBriefing.current = false;
+  }, [phase]);
   useEffect(()=>{if(pendingDecision)setWorkspaceTab("equipment");},[pendingDecision?.id]);
   const diagnosis = result && replay ? missionDiagnosis(replay) : null;
   const eventText = !frame ? "Preparing telemetry…" : frame.stationOffline ? "Ground station unavailable. Data remain on board." : frame.calibration ? "Camera calibration. Acquisition temporarily paused." : !frame.cameraOn ? "Camera off. Saving power; no new observations." : frame.batteryWh === 0 ? "Energy reserve depleted. Operations may be interrupted." : frame.eclipse ? "In Earth's shadow. Running on the battery." : frame.contact ? "Contact window. Returning observations to Earth." : "Sunlit flight. Observing Earth; watch the energy balance.";
@@ -148,18 +183,41 @@ function MissionApp({ loadSpacecraftViewer, initialAssisted = true }: AppProps) 
       {phase === "design" && <div className="design-grid">
         <aside className="equipment-panel panel-scroll"><div className="eyebrow">{t("01 / EQUIP")}</div><h2>{t("Choose your spacecraft systems")}</h2>
           <div className="equipment-tabs" role="tablist" aria-label={t("Spacecraft systems")}>{categoryOrder.map(category=><button key={category} role="tab" aria-selected={equipmentTab===category} onClick={()=>{setEquipmentTab(category);setInspected(equippedFor(category).id);}}>{categories[category].glyph}<small>{t(categories[category].label)}</small></button>)}</div>
-          {categoryOrder.map(category => <section className="equipment-group" data-active={equipmentTab===category} key={category}><h3><span>{categories[category].glyph}</span>{t(categories[category].label)}<InfoTip label={categories[category].label} text={category === "payload" ? "The camera produces observations in MB/min. A faster instrument needs more power. Acquisition stops when you turn it off." : category === "solar" ? "Panels generate electricity in sunlight. The two-unit kit doubles the basic array generation, mass and price; it does not generate during eclipse." : category === "battery" ? "Batteries store energy in Wh. Two basic units double capacity, mass and price. A larger reserve cannot fix a permanent generation deficit." : "The radio sends stored observations during contact. A higher MB/min rate clears data faster, but adds mass, cost and power demand."}/></h3><div className="equipment-options">{components.filter(c => c.category === category).map(c => <button key={c.id} className={`equipment-card ${mission.selectedComponentIds.includes(c.id) ? "selected" : ""}`} aria-pressed={mission.selectedComponentIds.includes(c.id)} onMouseEnter={() => setInspected(c.id)} onFocus={() => setInspected(c.id)} onClick={() => selectComponent(category,c.id)}><strong>{t(c.name)}</strong><small>{t(capability(c))}</small><span>{t(mission.selectedComponentIds.includes(c.id) ? "EQUIPPED" : `${signed(c.costCredits-equippedFor(category).costCredits)} cr`)}</span></button>)}</div></section>)}
-          <div className="kit-note"><strong>{t("A synthetic smallsat")}</strong><p>{t("One science instrument and radio; choose single or two-unit power kits. This is not a certified CubeSat design.")}</p></div>
+          {categoryOrder.map(category => {
+            const equippedPart = equippedFor(category);
+            return <section className="equipment-group" data-active={equipmentTab === category} key={category}>
+              <h3><span>{categories[category].glyph}</span>{t(categories[category].label)}<InfoTip label={categories[category].label} text={categoryInfo[category]}/></h3>
+              <div className="equipment-options">
+                {components.filter(c => c.category === category).map(c => <div className="equipment-option" key={c.id} role="group" aria-labelledby={`part-name-${c.id}`}>
+                  <button type="button" className={`equipment-card ${equippedPart.id === c.id ? "selected" : ""}`}
+                    aria-pressed={equippedPart.id === c.id} onMouseEnter={() => setInspected(c.id)} onFocus={() => setInspected(c.id)}
+                    onClick={() => selectComponent(category, c.id)}>
+                    <strong id={`part-name-${c.id}`}>{t(c.name)}</strong><small>{t(capability(c))}</small>
+                    <span>{t(equippedPart.id === c.id ? "EQUIPPED" : `${signed(c.costCredits - equippedPart.costCredits)} cr`)}</span>
+                  </button>
+                  <button type="button" className="equipment-help" aria-haspopup="dialog" title={t("How it works")}
+                    aria-label={t("How it works")} aria-describedby={`part-name-${c.id}`} onClick={() => setGuide(c)}>i</button>
+                </div>)}
+              </div>
+            </section>;
+          })}
+          <div className="kit-note"><strong>{t("An eight-subsystem smallsat")}</strong><p>{t("Four mandatory subsystems and four optional upgrades. Real missions are named only as examples; every number is fictional.")}</p></div>
         </aside>
         <section className="assembly-stage"><div className="stage-title"><span className="eyebrow">{t("02 / ASSEMBLE")}</span><span className="tag">{t("SYNTHETIC SMALLSAT")}</span></div>
           <SpacecraftPreview selectedComponentIds={mission.selectedComponentIds} loadViewer={loadSpacecraftViewer} initiallyOpen={Boolean(loadSpacecraftViewer)} onInspectComponent={setInspected}/>
           {!loadSpacecraftViewer && <div className="schematic-ship" aria-hidden="true"><span className="schematic-panel"/><span className="schematic-bus">◉</span><span className="schematic-panel"/></div>}
-          <div className="component-detail" aria-live="polite"><span className="eyebrow">{t(justChanged ? "CHANGE APPLIED · COMPARED WITH PREVIOUS PART" : mission.selectedComponentIds.includes(highlighted.id) ? "EQUIPPED COMPONENT" : "UPGRADE PREVIEW")}</span><strong>{t(highlighted.name)}</strong><p>{t(highlighted.description)}</p><div className="delta-row"><span>{t(mission.selectedComponentIds.includes(highlighted.id) && !justChanged ? capability(highlighted) : capabilityDelta(highlighted,deltaBase))}</span><span>{mission.selectedComponentIds.includes(highlighted.id) && !justChanged ? highlighted.costCredits : signed(highlighted.costCredits-deltaBase.costCredits)} {t("cr")}</span><span>{mission.selectedComponentIds.includes(highlighted.id) && !justChanged ? highlighted.massKg : signed(highlighted.massKg-deltaBase.massKg)} {t("kg")}</span><span>{mission.selectedComponentIds.includes(highlighted.id) && !justChanged ? highlighted.nominalPowerW : signed(highlighted.nominalPowerW-deltaBase.nominalPowerW)} {t("W load")}</span></div></div>
+          <div className="component-detail">
+            <div className="component-title-row">
+              <div aria-live="polite"><span className="eyebrow">{t(justChanged ? "CHANGE APPLIED · COMPARED WITH PREVIOUS PART" : highlightedEquipped ? "EQUIPPED COMPONENT" : "UPGRADE PREVIEW")}</span><strong>{t(highlighted.name)}</strong></div>
+              <button type="button" className="component-guide-link" aria-haspopup="dialog" onClick={() => setGuide(highlighted)}>{t("How it works")} ↗</button>
+            </div>
+            <p>{componentLessons[highlighted.id]?.[language][0] ?? t(highlighted.description)}</p>
+            <div className="delta-row"><span>{t(highlightedEquipped && !justChanged ? capability(highlighted) : capabilityDelta(highlighted,deltaBase))}</span><span>{highlightedEquipped && !justChanged ? highlighted.costCredits : signed(highlighted.costCredits-deltaBase.costCredits)} {t("cr")}</span><span>{highlightedEquipped && !justChanged ? highlighted.massKg : signed(highlighted.massKg-deltaBase.massKg)} {t("kg")}</span><span>{highlightedEquipped && !justChanged ? highlighted.nominalPowerW : signed(highlighted.nominalPowerW-deltaBase.nominalPowerW)} {t("W load")}</span></div>
+            {effects.activeSynergyIds.length > 0 && <small className="combo-line">{t("Active combinations")} · <b>{effects.activeSynergyIds.map(id => t(synergies.find(x => x.id === id)!.name)).join(" · ")}</b></small>}
+          </div>
         </section>
         <aside className="plan-panel panel-scroll"><div className="eyebrow">{t("03 / PLAN")}</div><h2>{t("Flight plan")}</h2><div className="plan-tabs"><button aria-pressed={planTab==="flight"} onClick={()=>setPlanTab("flight")}>{t("Orbit")}</button><button aria-pressed={planTab==="launch"} onClick={()=>setPlanTab("launch")}>{t("Launch")}</button><button aria-pressed={planTab==="seed"} onClick={()=>setPlanTab("seed")}>{t("Replay seed & model")}</button></div><div className="plan-page" data-active={planTab==="flight"}>
           <label className="range-label" htmlFor="altitude">{t("Orbit altitude ")}<strong>{mission.altitudeKm} {t("km")}</strong></label><input id="altitude" type="range" min="250" max="1000" step="50" value={mission.altitudeKm} onChange={e => updateMission(m => ({...m,altitudeKm:Number(e.target.value)}))}/>
-          <label className="range-label" htmlFor="duration">{t("Mission duration ")}<strong>{mission.durationOrbits} {t("orbits")}</strong></label><input id="duration" type="range" min="1" max="30" step="1" value={mission.durationOrbits} onChange={e => updateMission(m => ({...m,durationOrbits:Number(e.target.value)}))}/>
-           <small>{t("Deadline: ")}{scenario.maxOrbits} {t("orbits")}</small>
            <section className="orbit-reference" aria-label={t("NASA orbit reference")}>
              <div className="orbit-reference-actions">
                <button
@@ -177,6 +235,8 @@ function MissionApp({ loadSpacecraftViewer, initialAssisted = true }: AppProps) 
              </div>
              <small>{t("Circular-orbit period")} · <output aria-live="polite">{(orbit.periodSeconds / 60).toFixed(1)} {t("min")}</output></small>
            </section>
+          <label className="range-label" htmlFor="duration">{t("Mission duration ")}<strong>{mission.durationOrbits} {t("orbits")}</strong></label><input id="duration" type="range" min="1" max="30" step="1" value={mission.durationOrbits} onChange={e => updateMission(m => ({...m,durationOrbits:Number(e.target.value)}))}/>
+          <small>{t("Deadline: ")}{scenario.maxOrbits} {t("orbits")}</small>
            </div><div className="plan-page" data-active={planTab==="launch"}><h3 className="launcher-label">{t("Launch strategy")}</h3>{launchers.map(l => <button className={`launcher-card ${l.id === mission.launcherId ? "selected" : ""}`} key={l.id} aria-pressed={l.id===mission.launcherId} onClick={() => updateMission(m=>({...m,launcherId:l.id}))}><strong>{t(l.name)}</strong><small>{l.costCredits} {t("cr · ")}{l.massLimitKg} {t("kg limit")}</small></button>)}
           <div className="mini-readout"><span>{t("Battery capacity")}</span><strong>{design.batteryCapacityWh} {t("Wh")}</strong></div><div className="mini-readout"><span>{t("Orbit period")}</span><strong>{(orbit.periodSeconds/60).toFixed(1)} {t("min")}</strong></div>
           </div><div className="plan-page" data-active={planTab==="seed"}><label className="seed-label">{t("Replay seed")}<input type="number" min="0" max="4294967295" value={seed} onChange={e=>changeSeed(Number(e.target.value))}/></label><p>{t("Identical design, seed and commands reproduce the outcome. Hardware values and contacts are synthetic.")}</p></div>
@@ -196,7 +256,10 @@ function MissionApp({ loadSpacecraftViewer, initialAssisted = true }: AppProps) 
       </section></div>}
 
       {phase === "operations" && (!replay || !frame ? <div className="launching"><div className="launch-symbol">↗</div><h1>{t("Simulating orbital operations")}</h1><p>{t("Preparing your mission timeline…")}</p></div> : <div className="operations-grid">
-        <section className="flight-stage"><div className="flight-stage-top"><span className="eyebrow">{t("MISSION CONTROL")}</span><span className="tag">{t(paused || pendingDecision ? "PAUSED" : `${speed}× ACCELERATED`)}</span></div><FlightView frame={frame} selectedComponentIds={mission.selectedComponentIds} onExplore={()=>setPaused(true)}/><div className="mission-clock"><strong>{(frame.timeSeconds/60).toFixed(1)}<small> {t("MIN")}</small></strong><span>{t("ORBIT ")}{Math.min(mission.durationOrbits,Math.floor(frame.timeSeconds/orbit.periodSeconds)+1)} / {mission.durationOrbits}</span></div>
+        <section className="flight-stage"><div className="flight-stage-top"><span className="eyebrow">{t("MISSION CONTROL")}</span><span className="tag">{t(paused || pendingDecision ? "PAUSED" : `${speed}× ACCELERATED`)}</span></div>
+          <FlightView frame={frame} orbitTurns={cursor / orbit.periodSeconds} moving={!paused && !pendingDecision}
+            selectedComponentIds={mission.selectedComponentIds} onExplore={pauseForExplorer}/>
+          <div className="mission-clock"><strong>{(frame.timeSeconds/60).toFixed(1)}<small> {t("MIN")}</small></strong><span>{t("ORBIT ")}{Math.min(mission.durationOrbits,Math.floor(frame.timeSeconds/orbit.periodSeconds)+1)} / {mission.durationOrbits}</span></div>
           {pendingDecision && <DecisionCard decision={pendingDecision} onChoose={resolveDecision} frame={frame} onCompare={()=>compareCameraDecision(mission,seed,scenarioId,replay.commands,frame.timeSeconds)}/>}<div className="playback"><button className="secondary" disabled={Boolean(pendingDecision)} onClick={()=>setPaused(!paused)}>{t(paused ? "Resume playback" : "Pause playback")}</button><label>{t("Speed")}<select value={speed} onChange={e=>setSpeed(Number(e.target.value))}><option value={120}>120×</option><option value={600}>600×</option><option value={1800}>1800×</option></select></label><div className="time-progress" role="progressbar" aria-label={t("Mission elapsed time")} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(cursor/duration*100)}><i style={{width:`${cursor/duration*100}%`}}/></div></div>
         </section>
         <aside className="flight-console panel-scroll"><div className="plan-tabs"><button aria-pressed={consoleTab==="data"} onClick={()=>setConsoleTab("data")}>{t("Science & energy")}</button><button aria-pressed={consoleTab==="commands"} onClick={()=>setConsoleTab("commands")}>{t("Controls & events")}</button></div><div className="console-page" data-active={consoleTab==="data"}><ScienceArchive returnedMB={frame.transmittedMB} targetMB={scenario.targetMB}/><div className="eyebrow">{t("LIVE TELEMETRY")}</div><h2>{t(progress >= 1 ? "Data target reached." : "Bring the data home.")}</h2><div className="science-count">{frame.transmittedMB.toFixed(1)}<small> / {scenario.targetMB} {t("MB")}</small></div><div className="mini-readout"><span>{t("Data produced")}</span><strong>{frame.producedMB.toFixed(1)} {t("MB")}</strong></div><div className="mini-readout"><span>{t("Waiting onboard")}</span><strong>{frame.storedMB.toFixed(1)} {t("MB")}</strong></div><div className="mini-readout"><span>{t("Battery energy remaining")}</span><strong>{frame.batteryWh.toFixed(1)} {t("Wh")}</strong></div>
@@ -226,7 +289,8 @@ function MissionApp({ loadSpacecraftViewer, initialAssisted = true }: AppProps) 
     </div></footer>
     {purpose && <MissionPurpose onClose={()=>setPurpose(false)} onStart={()=>{setRiverwatch(true);setPurpose(false);setLastChange(null);updateMission(()=>challengeStart("survey"));navigate("design");}}/>}
     {detail && <DetailDialog {...detail} onClose={()=>setDetail(null)}/>}
+    {guide && <ComponentGuide component={guide} selectedIds={mission.selectedComponentIds} effects={effects} onClose={() => setGuide(null)}/>}
     {help && <div ref={helpPanel} className="help-overlay" role="dialog" aria-modal="true" aria-label={t("How to play")}><section><button className="icon-button close-help" onClick={()=>setHelp(false)} aria-label={t("Close help")}>×</button><div className="eyebrow">{t("FLIGHT MANUAL")}</div><h2>{t("A mission, not a perfect satellite.")}</h2><div className="help-page" data-active={helpPage===0}><p>{t("Choose a challenge. Equip your satellite. Review the limits, then watch it fly. Switch the camera off to conserve energy, or keep observing to build up data.")}</p></div><div className="help-page" data-active={helpPage===1}><p>{t("Only data received on Earth count. A large camera needs enough power and a radio that can deliver its observations.")}</p></div><div className="help-page" data-active={helpPage===2}><p>{t("All hardware, budgets and training events are synthetic. Orbit and contact geometry are idealized. MB measure quantity, not scientific quality. The 3D model is a schematic and never determines the physics.")}</p></div><div className="help-page" data-active={helpPage===3}><p>{t("No camera power savings are assumed during automatic calibration. A manual camera-off command removes its entire nominal load; bus and radio stay on.")}</p></div><div className="help-pagination"><button disabled={helpPage===0} onClick={()=>setHelpPage(p=>p-1)}>{t("Previous")}</button><span>{helpPage+1}/4</span><button disabled={helpPage===3} onClick={()=>setHelpPage(p=>p+1)}>{t("Next")}</button></div><button className="primary" onClick={()=>setHelp(false)}>{t("Back to the mission")}</button></section></div>}
   </div>;
-  function equippedFor(category: ComponentCategory) { return components.find(c=>c.category===category && mission.selectedComponentIds.includes(c.id))!; }
+  function equippedFor(category: ComponentCategory) { return components.find(c=>c.category===category && mission.selectedComponentIds.includes(c.id)) ?? components.find(c=>c.category===category)!; }
 }

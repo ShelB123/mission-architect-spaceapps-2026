@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { defaultMission } from "../data/catalog";
 import { missionScenarios, replayMission, type MissionScenarioId, type MissionReplay, type MissionCommand, type MissionFrame } from "../engine/game";
 import type { MissionConfig, MissionPhase, MissionResult } from "../types/contracts";
+import { FLIGHT_UPDATE_MS } from "../visualization/orbitMotion";
 
 import { advanceToDecision, missionDecisions } from "../engine/missionDecisions";
 
@@ -66,7 +67,8 @@ export function useMissionSession(assisted = false) {
 
   useEffect(() => {
     if (phase !== "operations" || !replay || paused || pendingDecision) return;
-    const tick = setInterval(() => setCursor(time => assisted ? advanceToDecision(time, Math.min(duration, time + speed / 10), decisions, handledDecisions) : Math.min(duration, time + speed / 10)), 100);
+    const advanceSeconds = speed * FLIGHT_UPDATE_MS / 1000;
+    const tick = setInterval(() => setCursor(time => assisted ? advanceToDecision(time, Math.min(duration, time + advanceSeconds), decisions, handledDecisions) : Math.min(duration, time + advanceSeconds)), FLIGHT_UPDATE_MS);
     return () => clearInterval(tick);
   }, [phase, replay, paused, speed, duration, assisted, decisions, handledDecisions, pendingDecision]);
   useEffect(() => { if (phase === "operations" && replay && cursor >= duration) finish(); }, [phase, replay, cursor, duration, finish]);

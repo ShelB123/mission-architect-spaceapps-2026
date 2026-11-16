@@ -1,0 +1,105 @@
+.equipment-option { position: relative; min-width: 0; }
+.equipment-option .equipment-card { width: 100%; height: 100%; }
+.equipment-option .equipment-card > span { padding-right: 27px; }
+.equipment-help {
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  display: grid;
+  place-items: center;
+  width: 25px;
+  height: 25px;
+  padding: 0;
+  border-radius: 5px;
+  color: #a4e7ee;
+  background: #132933;
+  font: italic 15px Georgia, serif;
+}
+
+.component-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.component-title-row strong { display: block; margin-top: 4px; }
+.component-guide-link {
+  font-size: 11px;
+  color: var(--cyan);
+  padding: 7px 9px;
+  flex-shrink: 0;
+}
+
+.part-guide-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  padding: 12px;
+  display: grid;
+  place-items: center;
+  background: #030b13dd;
+}
+.part-guide {
+  --guide-accent: #a4e7ee;
+  width: min(720px, 100%);
+  max-height: calc(100dvh - 24px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: clamp(15px, 3vw, 27px);
+  border: 1px solid #43616b;
+  border-radius: 13px;
+  color: #f1f7f9;
+  background: #101f28;
+  box-shadow: 0 22px 70px #0008;
+}
+.part-guide[data-category="solar"], .part-guide[data-category="battery"] { --guide-accent: #d0f789; }
+.part-guide[data-category="thermal"], .part-guide[data-category="propulsion"] { --guide-accent: #ffc491; }
+.part-guide-header { display: flex; align-items: start; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.part-guide h2 { font-size: clamp(22px, 4vw, 30px); line-height: 1.18; margin-top: 4px; }
+.part-guide h3 { font-size: 14px; color: var(--guide-accent); }
+.part-guide p { margin: 5px 0 0; line-height: 1.5; font-size: 14px; color: #d3e0e6; }
+.part-guide-overview { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.4fr); align-items: center; gap: 16px; }
+.part-guide-overview figure {
+  margin: 0;
+  min-width: 0;
+  padding: 7px;
+  border: 1px solid #2d4955;
+  border-radius: 8px;
+  background: radial-gradient(ellipse at center, #193642, #0a141d 76%);
+}
+.part-guide-overview .part-sketch { display: block; width: 100%; height: 126px; }
+.part-guide-overview figcaption { text-align: center; color: #a3bbc6; font-size: 10px; padding-top: 4px; }
+.part-guide-flow { list-style: none; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); padding: 0; margin: 11px 0 0; gap: 12px; }
+.part-guide-flow li {
+  position: relative;
+  display: grid;
+  align-content: start;
+  justify-items: center;
+  gap: 3px;
+  min-width: 0;
+  padding: 6px 3px;
+  border: 1px solid #35545f;
+  border-radius: 6px;
+  background: #142a34;
+  text-align: center;
+  font-size: 10px;
+}
+.part-guide-flow li > span { color: var(--guide-accent); font-size: 20px; line-height: 1.1; }
+.part-guide-flow li + li::before { content: "→"; position: absolute; left: -13px; top: 8px; color: var(--guide-accent); font-size: 12px; }
+.part-guide-decision { margin: 14px 0; border-left: 2px solid var(--guide-accent); padding: 8px 11px; background: #172c34; }
+.part-guide-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 107px), 1fr)); gap: 6px; margin: 7px 0; }
+.part-guide-stats div { padding: 7px 8px; border: 1px solid #324a53; border-radius: 5px; }
+.part-guide-stats dt { font-size: 11px; color: #b4cbd5; }
+.part-guide-stats dd { font-size: 13px; font-weight: 600; margin: 3px 0 0; }
+.part-guide details { margin: 8px 0 0; padding-top: 7px; }
+.part-guide details ul { margin-top: 6px; }
+@media (max-width: 520px) {
+  .part-guide-overview { grid-template-columns: minmax(90px, .7fr) minmax(0, 1.3fr); gap: 9px; }
+  .part-guide-overview .part-sketch { height: 91px; }
+  .part-guide p { font-size: 13px; }
+  .part-guide-flow { gap: 10px; }
+  .part-guide-flow li + li::before { left: -11px; }
+}
+@media (max-width: 350px) {
+  .part-guide-overview { grid-template-columns: 1fr; }
+}

@@ -2,7 +2,7 @@
   display: grid;
   justify-items: start;
   gap: 6px;
-  margin-top: 10px;
+  margin: 3px 0 13px;
   padding-top: 10px;
   border-top: 1px solid var(--line);
 }

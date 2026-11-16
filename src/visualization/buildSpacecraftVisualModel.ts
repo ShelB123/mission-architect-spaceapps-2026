@@ -32,7 +32,7 @@ export function busNodeKey(partId: string): string {
 
 const KINDS: ReadonlySet<string> = new Set(["box", "cylinder", "panel", "cone"]);
 const FINISHES: ReadonlySet<string> = new Set(["structure", "metal", "painted", "dark", "foil", "glass", "solar-cell", "cell", "pcb"]);
-const CATEGORIES: ReadonlySet<string> = new Set(["payload", "solar", "battery", "communications"]);
+const CATEGORIES: ReadonlySet<string> = new Set(["payload", "solar", "battery", "communications", "attitude", "computer", "thermal", "propulsion"]);
 const COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;
 const ROUND_SECTION_TOLERANCE_M = 1e-9;
 
@@ -138,6 +138,11 @@ export function schematicOffsetM(category: ComponentVisualDefinition["category"]
       return [0, 0, SCHEMATIC_SEPARATION_M];
     case "communications":
       return [0, SCHEMATIC_SEPARATION_M, 0];
+    case "propulsion":
+      return [0, -SCHEMATIC_SEPARATION_M, 0];
+    case "thermal":
+    case "attitude":
+      return [0, 0, -SCHEMATIC_SEPARATION_M];
     default:
       return NO_OFFSET;
   }
