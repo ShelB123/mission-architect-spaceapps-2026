@@ -1,5 +1,8 @@
 /** Presentation-only Spanish copy. English source strings remain the fallback. */
+import { esCatalog } from "./esCatalog";
+
 export const es: Readonly<Record<string, string>> = {
+  ...esCatalog,
   "Orbit": "Órbita",
   "Launch": "Lanzamiento",
   "Explain": "Explicar",

@@ -1,0 +1,7 @@
+/* Zoom control for the 2D orbit map. */
+.cockpit .orbit-zoom{position:absolute;top:8px;left:50%;transform:translateX(-50%);z-index:3;display:flex;gap:4px;flex-wrap:nowrap;white-space:nowrap}
+.cockpit .orbit-zoom button{padding:4px 8px;font-size:9.5px;line-height:1.2;background:#0d181ecc;color:#a9bcc4;border:1px solid var(--line);border-radius:3px}
+.cockpit .orbit-zoom button[aria-pressed=true]{background:#2a4130;border-color:var(--lime);color:var(--lime)}
+.cockpit .orbit-zoom button:disabled{opacity:.35}
+.atlas-body{cursor:pointer;outline:none}
+.atlas-body:focus-visible circle:last-of-type{stroke:#fff;stroke-width:2}

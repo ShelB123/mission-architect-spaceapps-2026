@@ -110,4 +110,8 @@ export const CATEGORY_LABELS: Readonly<Record<ComponentCategory, string>> = {
   solar: "Solar power",
   battery: "Energy storage",
   communications: "Communications",
+  attitude: "Attitude control",
+  computer: "Onboard computer",
+  thermal: "Thermal control",
+  propulsion: "Propulsion",
 };
