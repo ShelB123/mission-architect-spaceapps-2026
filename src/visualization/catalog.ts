@@ -67,6 +67,21 @@ export const BUS_VISUAL_PARTS: readonly VisualPart[] = deepFreeze([
   part("box", "deck-bottom", [0, -0.151, 0], [0.102, 0.004, 0.102], "#8a94a0", { finish: "metal" }),
   part("box", "avionics-board-upper", [0, -0.06, 0], [0.086, 0.004, 0.086], "#1f6f4a", { finish: "pcb", internal: true }),
   part("box", "avionics-board-lower", [0, -0.09, 0], [0.086, 0.004, 0.086], "#1f6f4a", { finish: "pcb", internal: true }),
+  // Cosmetic detail only: ribs, feet, sensors, connectors and internal shelves.
+  part("box", "rib-upper", [0, 0.108, 0], [0.1, 0.004, 0.1], "#8a94a0", { finish: "metal" }),
+  part("box", "rib-lower", [0, -0.108, 0], [0.1, 0.004, 0.1], "#8a94a0", { finish: "metal" }),
+  ...[-1, 1].flatMap((x) => [-1, 1].flatMap((z) => [-1, 1].map((y) =>
+    round("cylinder", `foot-${y > 0 ? "top" : "bottom"}-${x > 0 ? "right" : "left"}-${z > 0 ? "front" : "back"}`, [x * 0.0475, y * 0.1555, z * 0.0475], 0.007, 0.006, "#d9dee4", { finish: "metal" })))),
+  part("box", "access-port", [0.024, 0.128, 0.0485], [0.03, 0.022, 0.002], "#15181d", { finish: "dark" }),
+  round("cylinder", "umbilical-connector", [-0.024, 0.128, 0.05], 0.014, 0.006, "#c8a04a", { rotationRad: ALONG_Z, finish: "metal" }),
+  part("box", "remove-before-flight-pin", [-0.038, 0.142, 0.05], [0.006, 0.006, 0.008], "#d63031", { finish: "painted" }),
+  part("box", "sun-sensor-front", [0.03, 0.09, 0.0487], [0.012, 0.012, 0.002], "#4aa8d8", { finish: "glass" }),
+  part("box", "sun-sensor-back", [-0.03, 0.14, -0.0487], [0.012, 0.012, 0.002], "#4aa8d8", { finish: "glass" }),
+  part("box", "identification-plate", [0.022, 0.14, -0.0487], [0.03, 0.012, 0.001], "#eef1f4", { finish: "painted" }),
+  part("box", "shelf-mid", [0, -0.03, 0], [0.09, 0.003, 0.09], "#8a94a0", { finish: "metal", internal: true }),
+  part("box", "shelf-low", [0, -0.101, 0], [0.09, 0.003, 0.09], "#8a94a0", { finish: "metal", internal: true }),
+  round("cylinder", "harness-main", [0.04, 0, -0.04], 0.005, 0.26, "#b87333", { finish: "metal", internal: true }),
+  round("cylinder", "harness-data", [-0.04, 0, -0.04], 0.004, 0.26, "#2e86de", { finish: "metal", internal: true }),
 ]);
 
 const cameraBasic: ComponentVisualDefinition = {
