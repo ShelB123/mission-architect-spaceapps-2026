@@ -218,8 +218,6 @@ function MissionApp({ loadSpacecraftViewer, initialAssisted = true }: AppProps) 
         </section>
         <aside className="plan-panel panel-scroll"><div className="eyebrow">{t("03 / PLAN")}</div><h2>{t("Flight plan")}</h2><div className="plan-tabs"><button aria-pressed={planTab==="flight"} onClick={()=>setPlanTab("flight")}>{t("Orbit")}</button><button aria-pressed={planTab==="launch"} onClick={()=>setPlanTab("launch")}>{t("Launch")}</button><button aria-pressed={planTab==="seed"} onClick={()=>setPlanTab("seed")}>{t("Replay seed & model")}</button></div><div className="plan-page" data-active={planTab==="flight"}>
           <label className="range-label" htmlFor="altitude">{t("Orbit altitude ")}<strong>{mission.altitudeKm} {t("km")}</strong></label><input id="altitude" type="range" min="250" max="1000" step="50" value={mission.altitudeKm} onChange={e => updateMission(m => ({...m,altitudeKm:Number(e.target.value)}))}/>
-          <label className="range-label" htmlFor="duration">{t("Mission duration ")}<strong>{mission.durationOrbits} {t("orbits")}</strong></label><input id="duration" type="range" min="1" max="30" step="1" value={mission.durationOrbits} onChange={e => updateMission(m => ({...m,durationOrbits:Number(e.target.value)}))}/>
-           <small>{t("Deadline: ")}{scenario.maxOrbits} {t("orbits")}</small>
            <section className="orbit-reference" aria-label={t("NASA orbit reference")}>
              <div className="orbit-reference-actions">
                <button
@@ -237,6 +235,8 @@ function MissionApp({ loadSpacecraftViewer, initialAssisted = true }: AppProps) 
              </div>
              <small>{t("Circular-orbit period")} · <output aria-live="polite">{(orbit.periodSeconds / 60).toFixed(1)} {t("min")}</output></small>
            </section>
+          <label className="range-label" htmlFor="duration">{t("Mission duration ")}<strong>{mission.durationOrbits} {t("orbits")}</strong></label><input id="duration" type="range" min="1" max="30" step="1" value={mission.durationOrbits} onChange={e => updateMission(m => ({...m,durationOrbits:Number(e.target.value)}))}/>
+          <small>{t("Deadline: ")}{scenario.maxOrbits} {t("orbits")}</small>
            </div><div className="plan-page" data-active={planTab==="launch"}><h3 className="launcher-label">{t("Launch strategy")}</h3>{launchers.map(l => <button className={`launcher-card ${l.id === mission.launcherId ? "selected" : ""}`} key={l.id} aria-pressed={l.id===mission.launcherId} onClick={() => updateMission(m=>({...m,launcherId:l.id}))}><strong>{t(l.name)}</strong><small>{l.costCredits} {t("cr · ")}{l.massLimitKg} {t("kg limit")}</small></button>)}
           <div className="mini-readout"><span>{t("Battery capacity")}</span><strong>{design.batteryCapacityWh} {t("Wh")}</strong></div><div className="mini-readout"><span>{t("Orbit period")}</span><strong>{(orbit.periodSeconds/60).toFixed(1)} {t("min")}</strong></div>
           </div><div className="plan-page" data-active={planTab==="seed"}><label className="seed-label">{t("Replay seed")}<input type="number" min="0" max="4294967295" value={seed} onChange={e=>changeSeed(Number(e.target.value))}/></label><p>{t("Identical design, seed and commands reproduce the outcome. Hardware values and contacts are synthetic.")}</p></div>

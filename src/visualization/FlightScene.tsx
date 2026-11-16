@@ -1,6 +1,6 @@
 /** Presentation only: normalized scene units, exaggerated spacecraft, no flight dynamics. */
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { memo, useEffect, useLayoutEffect, useRef } from "react";
+import { memo, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Group } from "three";
 import { SpaceNeighborhood, StarField, Sun, SUN_POSITION } from "./SpaceEnvironment";
 import type { EnvironmentId } from "./environment";
@@ -24,15 +24,6 @@ const Exhibit = memo(function Exhibit({ onInspect }: Pick<FlightSceneProps, "onI
 const FlightAssembly = memo(function FlightAssembly({ model }: Pick<FlightSceneProps, "model">) {
   return <group scale={2}><Assembly model={model} schematic={false} reducedMotion/></group>;
 });
-
-function FlightResolution() {
-  const { width, height } = useThree(state => state.size);
-  const setDpr = useThree(state => state.setDpr);
-  useLayoutEffect(() => {
-    setDpr(Math.min(1, Math.sqrt(MAX_FLIGHT_PIXELS / Math.max(1, width * height))));
-  }, [width, height, setDpr]);
-  return null;
-}
 
 function World({ model, orbitTurns, moving, eclipse, contact, view, onContextLost, onInspect }: FlightSceneProps) {
   const { camera, gl, invalidate } = useThree();
@@ -63,7 +54,7 @@ function World({ model, orbitTurns, moving, eclipse, contact, view, onContextLos
     }
     if (now < tween.current.endsAt) invalidate();
   });
-  return <><FlightResolution/>
+  return <>
     <color attach="background" args={["#000003"]}/><ambientLight intensity={.045}/><directionalLight position={SUN_POSITION} intensity={3.4} color="#fff6e8"/>
     <hemisphereLight args={["#31517a", "#000000", .12]}/>
     <Exhibit onInspect={onInspect}/>
@@ -75,5 +66,21 @@ function World({ model, orbitTurns, moving, eclipse, contact, view, onContextLos
   </>;
 }
 export default function FlightScene(props: FlightSceneProps) {
-  return <Canvas frameloop="demand" dpr={1} camera={cameraSettings} gl={graphics}><World {...props}/></Canvas>;
+  const host = useRef<HTMLDivElement>(null);
+  const [pixelRatio, setPixelRatio] = useState(1);
+  useLayoutEffect(() => {
+    const element = host.current;
+    if (!element) return;
+    const resize = () => {
+      const pixels = Math.max(1, element.clientWidth * element.clientHeight);
+      setPixelRatio(Math.min(1, Math.sqrt(MAX_FLIGHT_PIXELS / pixels)));
+    };
+    resize();
+    const observer = new ResizeObserver(resize);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+  return <div ref={host}>
+    <Canvas frameloop="demand" dpr={pixelRatio} camera={cameraSettings} gl={graphics}><World {...props}/></Canvas>
+  </div>;
 }
