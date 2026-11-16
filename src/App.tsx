@@ -18,6 +18,7 @@ import { DecisionCard } from "./ui/DecisionCard";
 import { ScienceArchive } from "./ui/ScienceArchive";
 import { FlightView } from "./ui/FlightView";
 import { MissionOrbit } from "./ui/MissionOrbit";
+import { useDesignApproach } from "./ui/useDesignApproach";
 import { challenges, challengeStart } from "./ui/challenges";
 import type { ComponentCategory, MissionPhase, SpaceComponent } from "./types/contracts";
 import { missionDesignGuide, tropicsOrbit } from "./data/nasaReferences";
@@ -80,7 +81,9 @@ function MissionApp({ loadSpacecraftViewer, initialAssisted = true }: AppProps) 
   const [detail, setDetail] = useState<DetailReport | null>(null);
   const [guide, setGuide] = useState<SpaceComponent | null>(null);
   const { mission, scenarioId, selectScenario, seed, changeSeed, phase, result, replay, frame, cursor, duration, paused, setPaused,
-    speed, setSpeed, previousAttempt, error, updateMission, navigate, launch, reset, improveDesign, commandCamera, finish, pendingDecision, resolveDecision, nextDecision } = session;
+    speed, setSpeed, previousAttempt, error, updateMission, navigate: navigatePhase, launch, reset, improveDesign, commandCamera, finish, pendingDecision, resolveDecision, nextDecision } = session;
+  const prepareApproach = useDesignApproach(phase);
+  const entersDesignFromBriefing = useRef(false);
   const pauseForExplorer = useCallback(() => setPaused(true), [setPaused]);
   const [inspected, setInspected] = useState("camera-basic");
   const [hintLevel, setHintLevel] = useState(0);
@@ -137,7 +140,18 @@ function MissionApp({ loadSpacecraftViewer, initialAssisted = true }: AppProps) 
       ],
     });
   }
-  useEffect(()=>{setWorkspaceTab("equipment");},[phase]);
+  function navigate(next: Exclude<MissionPhase, "operations">) {
+    if (phase === "briefing" && next === "design") {
+      prepareApproach();
+      entersDesignFromBriefing.current = true;
+      setWorkspaceTab("view");
+    }
+    navigatePhase(next);
+  }
+  useEffect(() => {
+    if (!entersDesignFromBriefing.current) setWorkspaceTab("equipment");
+    entersDesignFromBriefing.current = false;
+  }, [phase]);
   useEffect(()=>{if(pendingDecision)setWorkspaceTab("equipment");},[pendingDecision?.id]);
   const diagnosis = result && replay ? missionDiagnosis(replay) : null;
   const eventText = !frame ? "Preparing telemetry…" : frame.stationOffline ? "Ground station unavailable. Data remain on board." : frame.calibration ? "Camera calibration. Acquisition temporarily paused." : !frame.cameraOn ? "Camera off. Saving power; no new observations." : frame.batteryWh === 0 ? "Energy reserve depleted. Operations may be interrupted." : frame.eclipse ? "In Earth's shadow. Running on the battery." : frame.contact ? "Contact window. Returning observations to Earth." : "Sunlit flight. Observing Earth; watch the energy balance.";
