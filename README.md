@@ -39,11 +39,19 @@ La compilación genera dist/ con HTML, JS, CSS y texturas locales. Publica **el 
 - Inspección de satélite procedural 3D y esquema, cámaras Seguir satélite y Cámara a bordo, órbita 2D. Tierra Blue Marble, Luna LROC y explorador de ISS y otros objetos.
 - Semilla reproducible, eventos de calibración y estación no disponible, órdenes de cámara, pausas del modo comandante y comparación calculada de decisiones.
 - Riverwatch, diagnóstico al terminar, comparación entre intentos, español/inglés, ayuda opcional y recuperación de 3D.
-- Extensiones orbitales opcionales de la rama 1dde820: beta, velocidad, cuentas regresivas y notas de validez. El jugador sigue usando los valores predeterminados anteriores; no se añadieron controles ni se cambió la física para ajustar gráficos.
+- Extensiones orbitales opcionales de la rama 1dde820: beta, velocidad, cuentas regresivas y notas de validez. La partida usa una órbita circular con ángulo beta solar de 0°.
 
 ![Operaciones y comparación de decisiones en Brave](docs/images/gameplay-brave.jpg)
 
 Captura real de una sesión anterior en Brave con la misma interfaz de operaciones.
+
+## Datos y recursos de la NASA
+
+- En **Diseño → Plan de vuelo → Órbita**, **Usar altitud de TROPICS** aplica los 550 km aproximados publicados por NASA. El juego recalcula el período y simula el vuelo con esa altitud en su modelo circular. [Ficha TROPICS de la NASA](https://www.nasa.gov/blogs/smallsatellites/2023/05/25/mission-facts-about-nasas-tropics/)
+- En **Revisión → Segmentos de misión de la NASA**, el jugador recorre lanzamiento, espacio, tierra y usuarios con la masa, batería, radio y objetivo de su diseño. [Design and Develop Science Missions, diapositiva 8](https://www.nasa.gov/wp-content/uploads/2025/04/250323-design-and-develop-science-mission.pdf#page=8)
+- NASA Blue Marble se usa en la Tierra del briefing y de las vistas de vuelo. CGI Moon Kit aporta la textura de la Luna. El briefing de Riverwatch enlaza ejemplos de observación Landsat de NASA y USGS. [Créditos de las imágenes](public/textures/CREDITS.md) · [Landsat para gestión de desastres](https://science.nasa.gov/mission/landsat/benefits/disaster-management/)
+
+Los componentes, precios, contactos y datos adquiridos durante la partida son sintéticos. [Registro de fuentes](docs/SOURCES.md) · [Enlaces para el formulario de Space Apps](docs/DEMO_AND_SUBMISSION.md#nasa-data)
 
 ## Estructura y trabajo en equipo
 
@@ -51,7 +59,7 @@ Captura real de una sesión anterior en Brave con la misma interfaz de operacion
 |---|---|
 | src/engine | Física, recursos y simulación puras |
 | src/types/contracts.ts | Contratos compartidos; coordinar cambios con integración |
-| src/data/catalog.ts | Componentes sintéticos y lanzadores |
+| src/data | Componentes y lanzadores sintéticos, y referencia orbital de NASA |
 | src/App.tsx y src/ui | Flujo, telemetría, decisiones e interfaz |
 | src/visualization | Geometría, escenas, texturas y cámaras |
 | src/i18n | Español/inglés |
