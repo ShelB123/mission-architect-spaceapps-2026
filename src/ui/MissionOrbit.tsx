@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useLanguage } from "../i18n/Language";
 import type { MissionFrame } from "../engine/game";
+import { BriefingOrbit } from "./BriefingOrbit";
 import "./orbit-atlas.css";
 
 /**
@@ -101,6 +102,10 @@ function EarthMoon() {
 }
 
 export function MissionOrbit({ frame, compact = false }: { frame?: MissionFrame; compact?: boolean }) {
+  return compact ? <BriefingOrbit /> : <OrbitAtlas frame={frame} />;
+}
+
+function OrbitAtlas({ frame }: { frame?: MissionFrame }) {
   const { t } = useLanguage();
   const [level, setLevel] = useState(0);
   const [picked, setPicked] = useState("Earth");
@@ -108,13 +113,13 @@ export function MissionOrbit({ frame, compact = false }: { frame?: MissionFrame;
   const x = 320 + 238 * Math.cos(angle), y = 260 - 202 * Math.sin(angle);
   const linked = Boolean(frame?.contact && !frame.stationOffline && frame.batteryWh > 0);
   const debris = useMemo(() => { const random = seeded(21); return Array.from({ length: 64 }, () => { const a = random() * TAU, k = 1.07 + random() * 0.09; return [320 + 238 * k * Math.cos(a), 260 - 202 * k * Math.sin(a), 0.5 + random() * 1.1, random() * 180]; }); }, []);
-  const shown = compact ? 0 : level;
-  return <div className={`orbit-stage ${compact ? "compact" : ""}`}>
-    {!compact && <div className="orbit-zoom" role="group" aria-label={t("Map scale")}>
+  const shown = level;
+  return <div className="orbit-stage">
+    <div className="orbit-zoom" role="group" aria-label={t("Map scale")}>
       <button aria-label={t("Zoom in")} disabled={level === 0} onClick={() => setLevel(level - 1)}>＋</button>
       {LEVELS.map((label, i) => <button key={label} aria-pressed={level === i} onClick={() => setLevel(i)}>{t(label)}</button>)}
       <button aria-label={t("Zoom out")} disabled={level === LEVELS.length - 1} onClick={() => setLevel(level + 1)}>－</button>
-    </div>}
+    </div>
     <svg viewBox="0 0 640 520" role="img" aria-label={t(shown === 0 ? "Schematic orbital plane. Sunlight from the right, Earth's shadow to the left." : "Solar-system map. Select a body for details.")}>
       <defs>
         <radialGradient id="ocean"><stop stopColor="#1f7189"/><stop offset=".75" stopColor="#153f60"/><stop offset="1" stopColor="#101e36"/></radialGradient>
@@ -169,6 +174,6 @@ export function MissionOrbit({ frame, compact = false }: { frame?: MissionFrame;
         <text x="320" y="458" textAnchor="middle" fill="#83a0ac" fontSize="10" letterSpacing="2">{t("ORBIT SCHEMATIC • NOT TO SCALE")}</text>
       </g>}
     </svg>
-    {!compact && shown === 0 && <div className="orbit-badges"><span className={frame?.eclipse ? "tag amber" : "tag"}>{t(frame?.eclipse ? "In eclipse" : "Sunlit")}</span><span className={linked ? "tag lime" : "tag muted"}>{t(frame?.stationOffline ? "Station offline" : linked ? "Downlink window" : "Awaiting contact")}</span></div>}
+    {shown === 0 && <div className="orbit-badges"><span className={frame?.eclipse ? "tag amber" : "tag"}>{t(frame?.eclipse ? "In eclipse" : "Sunlit")}</span><span className={linked ? "tag lime" : "tag muted"}>{t(frame?.stationOffline ? "Station offline" : linked ? "Downlink window" : "Awaiting contact")}</span></div>}
   </div>;
 }

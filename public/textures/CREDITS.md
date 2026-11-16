@@ -8,3 +8,5 @@ Downloaded 2026-11-14 (America/Bogota). Unmodified JPEGs. No runtime third-party
   Download: https://svs.gsfc.nasa.gov/vis/a000000/a004700/a004720/lroc_color_2k.jpg
 
 NASA usage guidance: https://www.nasa.gov/nasa-brand-center/images-and-media/ . Educational/informational use with attribution; no endorsement implied. These assets are credited separately from repository code. No NASA logo or insignia used. ISS, spacecraft and debris meshes are synthetic project geometry, not NASA CAD.
+
+The briefing artwork uses `briefing-earth.jpg`, an orthographic projection of the local NASA Blue Marble image centered over the Americas with a stylized atmospheric rim. `briefing-starfield.png` is a procedural illustration.

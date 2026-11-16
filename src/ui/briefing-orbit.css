@@ -1,0 +1,237 @@
+@font-face {
+  font-family: "Briefing Display";
+  src: url("/fonts/bricolage-grotesque-latin.woff2") format("woff2");
+  font-weight: 200 800;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Briefing Text";
+  src: url("/fonts/inter-latin.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+.cockpit:has(.phase-briefing) {
+  --line: #222a38;
+  --muted: #a4b2c5;
+  --ink: #f7f9ff;
+  --lime: #c8f78a;
+  --cyan: #a0d6fa;
+  color: var(--ink);
+  background: #020306;
+  font-family: "Briefing Text", "Segoe UI", sans-serif;
+}
+
+.cockpit:has(.phase-briefing) :is(.command-header, .phase-nav, .hud, .action-bar) {
+  background: #080a10;
+}
+
+.cockpit:has(.phase-briefing) :is(.phase-nav button, .header-actions select) { font-size: 13px; }
+.cockpit:has(.phase-briefing) .phase-nav button:not(:disabled):not(.active) { color: #b3bfd1; }
+.cockpit:has(.phase-briefing) .meter-label { font-size: 11px; letter-spacing: .045em; }
+.cockpit:has(.phase-briefing) .meter-label span { font-size: 16px; }
+.cockpit:has(.phase-briefing) .hud-meter small { font-size: 11px; }
+.cockpit:has(.phase-briefing) .header-center { font-size: 11px; }
+
+.game-area.phase-briefing {
+  overflow: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #333f55 #020306;
+  background: #020306 url("/textures/briefing-starfield.png") center / cover;
+}
+
+.phase-briefing .briefing-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.12fr) minmax(0, 1fr);
+  max-width: 1480px;
+  height: auto;
+  min-height: 100%;
+  padding: clamp(22px, 3.4vh, 42px) clamp(28px, 4vw, 64px);
+  gap: clamp(24px, 3.7vw, 60px);
+}
+
+.phase-briefing .briefing-art {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+  min-height: 0;
+  border: 0;
+  overflow: visible;
+  padding: 0;
+  background: transparent;
+}
+
+.phase-briefing .eyebrow {
+  color: #a8d8ff;
+  font-size: 12px;
+  letter-spacing: .13em;
+}
+
+.phase-briefing .briefing-art h1 {
+  font-family: "Briefing Display", "Briefing Text", sans-serif;
+  font-size: clamp(38px, 5vw, 76px);
+  font-weight: 650;
+  line-height: .96;
+  letter-spacing: -.045em;
+  margin: 12px 0 0;
+  text-shadow: 0 1px 12px #010307;
+}
+
+.phase-briefing .art-caption { display: none; }
+
+.briefing-orbit {
+  width: 100%;
+  margin: -5px 0 0;
+}
+
+.briefing-orbit svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: min(44vh, 440px);
+  overflow: visible;
+}
+
+.briefing-orbit-track {
+  fill: none;
+  stroke: #91bcff;
+  stroke-width: 1.35;
+  stroke-dasharray: 2 5;
+  opacity: .56;
+}
+
+.briefing-orbit-satellite {
+  offset-path: path("M 592 193 A 272 148 0 1 0 48 193 A 272 148 0 1 0 592 193");
+  offset-rotate: 0deg;
+  offset-distance: 8%;
+  filter: drop-shadow(0 0 5px #5798edaa);
+  animation: briefing-orbit-loop 27s -2.16s linear infinite;
+}
+
+@keyframes briefing-orbit-loop {
+  from { offset-distance: 0%; }
+  to { offset-distance: 100%; }
+}
+
+.briefing-orbit[data-paused="true"] .briefing-orbit-satellite { animation-play-state: paused; }
+
+.briefing-orbit figcaption {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  color: #9aaec7;
+  font: 11px/1.35 Consolas, monospace;
+}
+
+.briefing-motion {
+  background: #090d16;
+  color: #cad8eb;
+  font: 500 12px "Briefing Text", "Segoe UI", sans-serif;
+  min-height: 34px;
+  padding: 5px 9px;
+  white-space: nowrap;
+}
+
+.briefing-motion span { margin-right: 6px; color: var(--cyan); }
+
+.phase-briefing .briefing-content {
+  height: auto;
+  overflow: visible;
+  justify-content: center;
+  padding: 0;
+  gap: 16px;
+}
+
+.phase-briefing .mission-cards { gap: 10px; }
+
+.phase-briefing .mission-card {
+  min-height: 104px;
+  padding: 14px 20px 14px 12px;
+  gap: 8px;
+  border-radius: 10px;
+  border-color: #293345;
+  background: #0a101cee;
+}
+
+.phase-briefing .mission-card.selected {
+  background: linear-gradient(125deg, #1b2b22, #121d1e 75%);
+  border-color: #8daf66;
+}
+
+.phase-briefing .mission-card:not(.selected):hover { background: #111c2e; }
+.phase-briefing .mission-number { font-size: 12px; color: #8799b1; }
+.phase-briefing .mission-card.selected .mission-number { color: var(--lime); }
+.phase-briefing .mission-arrow { color: #86a2c4; }
+.phase-briefing .mission-card small { font-size: 10px; color: #afc7dd; }
+.phase-briefing .mission-card strong {
+  font: 680 clamp(16px, 1.32vw, 21px)/1.13 "Briefing Display", "Briefing Text", sans-serif;
+  margin: 5px 0;
+}
+.phase-briefing .mission-card p {
+  display: block;
+  font-size: 13px;
+  line-height: 1.42;
+}
+
+.phase-briefing .selected-brief h2 {
+  font: 650 clamp(21px, 2vw, 30px)/1.13 "Briefing Display", "Briefing Text", sans-serif;
+}
+.phase-briefing .selected-brief p { font-size: 15px; line-height: 1.5; }
+.phase-briefing .selected-brief small { font-size: 12px; }
+.phase-briefing .selected-brief .purpose-entry { margin: 8px 0 0; min-height: 34px; padding: 5px 10px; font-size: 12px; }
+.phase-briefing .briefing-buttons {
+  margin: 2px 0 0;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.phase-briefing .briefing-buttons button {
+  flex: 0 1 auto;
+  font-size: 14px;
+  padding: 11px 15px;
+  min-height: 46px;
+  white-space: normal;
+}
+.phase-briefing .briefing-buttons .primary { font-weight: 750; }
+.phase-briefing .briefing-buttons .primary span { margin-left: 14px; }
+.phase-briefing .briefing-buttons .secondary { background: #11192a; }
+
+@media (max-width: 900px) {
+  .cockpit:has(.phase-briefing) {
+    grid-template-rows: 88px 36px auto minmax(0, 1fr) 46px;
+  }
+  .phase-briefing .briefing-layout {
+    grid-template-columns: minmax(0, 1fr);
+    max-width: 660px;
+    padding: 24px clamp(16px, 5vw, 30px) 30px;
+    gap: 23px;
+  }
+  .phase-briefing .briefing-art h1 { font-size: clamp(35px, 8vw, 60px); }
+  .briefing-orbit svg { max-height: 330px; }
+  .phase-briefing .briefing-content { gap: 14px; }
+  .cockpit:has(.phase-briefing) .phase-nav button { font-size: 11px; }
+  .cockpit:has(.phase-briefing) .meter-label { font-size: 9px; }
+  .cockpit:has(.phase-briefing) .meter-label span { font-size: 13px; }
+  .cockpit:has(.phase-briefing) .hud-meter small { font-size: 9px; }
+}
+
+@media (max-width: 430px) {
+  .cockpit:has(.phase-briefing) .phase-nav button span { display: none; }
+  .phase-briefing .mission-card { padding: 11px 14px 11px 8px; gap: 6px; }
+  .phase-briefing .mission-card p { font-size: 12px; }
+  .phase-briefing .mission-card small { font-size: 9px; }
+  .phase-briefing .briefing-buttons { flex-direction: column; }
+}
+
+@media (max-width: 900px) and (max-height: 620px) {
+  .cockpit:has(.phase-briefing) {
+    grid-template-rows: 44px 34px auto minmax(0, 1fr) 44px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .briefing-orbit-satellite { animation: none; }
+  .briefing-motion { display: none; }
+}
