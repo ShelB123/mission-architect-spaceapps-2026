@@ -2,7 +2,7 @@ import { Canvas, useThree } from "@react-three/fiber";
 import { useEffect } from "react";
 import { PerspectiveCamera, Vector3 } from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-import { EnvironmentModel } from "./SpaceEnvironment";
+import { EnvironmentModel, StarField } from "./SpaceEnvironment";
 import type { EnvironmentId } from "./environment";
 
 interface Props { id: EnvironmentId; angle: number; onContextLost: () => void }
@@ -26,9 +26,9 @@ function Controls({id,onContextLost}: Pick<Props,"id"|"onContextLost">) {
   return null;
 }
 export default function EnvironmentScene({id,angle,onContextLost}:Props) {
-  return <Canvas frameloop="demand" dpr={[1,1.5]} camera={{fov:38,near:.1,far:100}}>
-    <color attach="background" args={["#06111d"]}/><ambientLight intensity={.85}/><directionalLight position={[7,4,6]} intensity={2}/>
+  return <Canvas frameloop="demand" dpr={[1,1.5]} camera={{fov:38,near:.1,far:200}}>
+    <color attach="background" args={["#000003"]}/><ambientLight intensity={.16}/><directionalLight position={[7,4,6]} intensity={3} color="#fff6e8"/><hemisphereLight args={["#31517a", "#000000", .2]}/><StarField/>
     <Controls id={id} onContextLost={onContextLost}/>
-    <group rotation={[0,angle,0]}><EnvironmentModel id={id}/></group>
+    <group rotation={[0,angle,0]}><EnvironmentModel id={id} sun={[7,4,6]}/></group>
   </Canvas>;
 }

@@ -74,8 +74,9 @@ function collectClickHandlers(node: ReactNode, found: (() => void)[] = []): (() 
 
 describe("visual catalog", () => {
   it("represents all ten components with matching IDs, categories and names", () => {
-    expect(Object.keys(visualCatalog).sort()).toEqual([...COMPONENT_IDS].sort());
-    expect(physicalComponents.map((component) => component.id).sort()).toEqual([...COMPONENT_IDS].sort());
+    expect(Object.keys(visualCatalog).sort()).toEqual(physicalComponents.map((component) => component.id).sort());
+    expect(physicalComponents).toHaveLength(64);
+    expect(build(physicalComponents.map((component) => component.id)).issues).toEqual([]);
 
     const model = build(COMPONENT_IDS);
     expect(model.issues).toEqual([]);
@@ -355,7 +356,7 @@ describe("separation between presentation and simulation", () => {
   };
 
   it("never imports engines, the physical catalog or the app from the visualization layer", () => {
-    expect(Object.keys(sources)).toHaveLength(10);
+    expect(Object.keys(sources)).toHaveLength(11);
     for (const [path, source] of Object.entries(sources)) {
       for (const specifier of importsOf(source)) {
         expect(specifier, path).not.toMatch(/engine|data\/catalog|App|styles\.css/);
