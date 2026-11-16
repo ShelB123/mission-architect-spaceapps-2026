@@ -1,12 +1,18 @@
 import { useLanguage } from "../i18n/Language";
 import type { MissionFrame } from "../engine/game";
+import { BriefingOrbit } from "./BriefingOrbit";
 
 export function MissionOrbit({ frame, compact = false }: { frame?: MissionFrame; compact?: boolean }) {
+  if (compact) return <BriefingOrbit />;
+  return <OrbitSchematic frame={frame} />;
+}
+
+function OrbitSchematic({ frame }: { frame?: MissionFrame }) {
   const { t } = useLanguage();
   const angle = (frame?.orbitFraction ?? 0.08) * Math.PI * 2;
   const x = 320 + 238 * Math.cos(angle), y = 260 - 202 * Math.sin(angle);
   const linked = Boolean(frame?.contact && !frame.stationOffline && frame.batteryWh > 0);
-  return <div className={`orbit-stage ${compact ? "compact" : ""}`}>
+  return <div className="orbit-stage">
     <svg viewBox="0 0 640 520" role="img" aria-label={t("Schematic orbital plane. Sunlight from the right, Earth's shadow to the left.")}>
       <defs>
         <radialGradient id="ocean"><stop stopColor="#1f7189"/><stop offset=".75" stopColor="#153f60"/><stop offset="1" stopColor="#101e36"/></radialGradient>
@@ -39,6 +45,6 @@ export function MissionOrbit({ frame, compact = false }: { frame?: MissionFrame;
       </g>
       <text x="320" y="458" textAnchor="middle" fill="#83a0ac" fontSize="10" letterSpacing="2">{t("ORBIT SCHEMATIC • NOT TO SCALE")}</text>
     </svg>
-    {!compact && <div className="orbit-badges"><span className={frame?.eclipse ? "tag amber" : "tag"}>{t(frame?.eclipse ? "In eclipse" : "Sunlit")}</span><span className={linked ? "tag lime" : "tag muted"}>{t(frame?.stationOffline ? "Station offline" : linked ? "Downlink window" : "Awaiting contact")}</span></div>}
+    <div className="orbit-badges"><span className={frame?.eclipse ? "tag amber" : "tag"}>{t(frame?.eclipse ? "In eclipse" : "Sunlit")}</span><span className={linked ? "tag lime" : "tag muted"}>{t(frame?.stationOffline ? "Station offline" : linked ? "Downlink window" : "Awaiting contact")}</span></div>
   </div>;
 }

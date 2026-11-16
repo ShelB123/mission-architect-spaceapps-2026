@@ -27,7 +27,7 @@ describe("language preference", () => {
   it("starts in the browser's language and remembers an explicit change", () => {
     vi.spyOn(navigator, "languages", "get").mockReturnValue(["es-PE"]);
     const first = render(<App initialAssisted={false} />);
-    expect(screen.getByRole("button", { name: /Diseñar satélite/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Diseña tu satélite/ })).toBeTruthy();
     expect(document.documentElement.lang).toBe("es");
     language("en");
     expect(localStorage.getItem(LANGUAGE_KEY)).toBe("en");
@@ -39,7 +39,7 @@ describe("language preference", () => {
     vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => { throw new Error("blocked"); });
     vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("blocked"); });
     render(<App initialAssisted={false} />); language("es");
-    expect(screen.getByRole("button", { name: /Diseñar satélite/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Diseña tu satélite/ })).toBeTruthy();
   });
 });
 
@@ -47,7 +47,7 @@ describe("localized gameplay", () => {
   it("translates configuration and launch constraints without resetting choices", () => {
     render(<App initialAssisted={false} />); language("es");
     fireEvent.change(screen.getByLabelText("Escenario de misión"), { target: { value: "budget-survey" } });
-    click(/Diseñar satélite/); click(/Paneles solares ampliados/);
+    click(/Diseña tu satélite/); click(/Paneles solares ampliados/);
     expect(screen.getByText("+90 W de generación")).toBeTruthy();
     click(/Revisar diseño/);
     expect(screen.getByText(/Superas el presupuesto del escenario en 35 créditos/)).toBeTruthy();
@@ -59,7 +59,7 @@ describe("localized gameplay", () => {
   it("switches during a paused flight without rerunning the engine or losing commands", () => {
     const replay = vi.spyOn(game, "replayMission");
     render(<App initialAssisted={false} />); language("es");
-    click(/Diseñar satélite/); click(/Revisar diseño/); click(/Iniciar misión/);
+    click(/Diseña tu satélite/); click(/Revisar diseño/); click(/Iniciar misión/);
     act(() => vi.advanceTimersByTime(450));
     click(/^Pausar$/); click(/Ahorrar energía/);
     click(/Registro de órdenes/);

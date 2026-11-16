@@ -33,7 +33,7 @@ describe("space environment exploration",()=>{
   });
   it("offers the complete Spanish explorer and honestly indicates the 2D fallback",()=>{
     localStorage.setItem("mission-architect-language","es");render(<App initialAssisted={false}/>);
-    click(/Diseñar satélite/);click(/Revisar diseño/);click(/Iniciar misión/);act(()=>vi.advanceTimersByTime(450));
+    click(/Diseña tu satélite/);click(/Revisar diseño/);click(/Iniciar misión/);act(()=>vi.advanceTimersByTime(450));
     click(/^Cámara a bordo$/);click(/^Explorar espacio$/);
     click(/^ISS$/);expect(screen.getByText(/unos 400 km/)).toBeTruthy();
     click(/^Tu misión$/);expect(screen.getByText(/no indica su posición real/)).toBeTruthy();
