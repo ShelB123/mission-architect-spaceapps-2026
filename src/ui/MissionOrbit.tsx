@@ -132,13 +132,13 @@ function OrbitAtlas({ frame }: { frame?: MissionFrame }) {
       {shown === 1 && <EarthMoon/>}
       {shown >= 2 && <SolarSystem outer={shown === 3} picked={picked} onPick={setPicked}/>}
       {shown === 0 && <g>
-        <path d="M0 150H320V370H0Z" fill="#020611" opacity=".56"/>
+        <path className="atlas-eclipse-fill" d="M0 150H320V370H0Z" fill="#020611" opacity=".56"/>
         <path d="M0 150H320M0 370H320" stroke="#31465a" strokeWidth=".6" strokeDasharray="6 6"/>
         <ellipse cx="320" cy="260" rx="238" ry="202" fill="none" stroke="#4d7784" strokeWidth="1" strokeDasharray="3 8"/>
         <ellipse cx="320" cy="260" rx="254" ry="216" fill="none" stroke="#203340" strokeWidth=".6"/>
         <ellipse cx="320" cy="260" rx="277" ry="236" fill="none" stroke="#203340" strokeWidth=".6"/>
         {debris.map(([dx, dy, size, turn], i) => <rect key={i} x={dx - size} y={dy - size / 2} width={size * 2} height={size} fill="#a39f92" opacity=".7" transform={`rotate(${turn} ${dx} ${dy})`}/>)}
-        <text x="486" y="62" fill="#8d897e" fontSize="8" letterSpacing="1.5">{t("DEBRIS BAND · DECORATIVE")}</text>
+        <text x="620" y="62" textAnchor="end" fill="#8d897e" fontSize="8" letterSpacing="1.5">{t("DEBRIS BAND · DECORATIVE")}</text>
         {[0.25, 0.75].map(f => { const a = f * TAU + 0.5, px = 320 + 238 * Math.cos(a), py = 260 - 202 * Math.sin(a); return <path key={f} d="M-5 4L0-5L5 4" fill="none" stroke="#6fa3b3" transform={`translate(${px} ${py}) rotate(${-a * 180 / Math.PI})`}/>; })}
         <circle cx="320" cy="260" r="136" fill="url(#atmos)"/>
         <circle cx="320" cy="260" r="110" fill="url(#ocean)" stroke="#4ba4b5"/>
@@ -155,13 +155,14 @@ function OrbitAtlas({ frame }: { frame?: MissionFrame }) {
           <path d="M250 225q30-14 60 2M340 200q28-10 50 6M300 315q35 12 70-4M360 280q20-8 44 4"/>
         </g>
         <circle cx="320" cy="260" r="110" fill="url(#night)"/>
+        <image className="atlas-earth-photo" href={`${import.meta.env.BASE_URL}textures/briefing-earth.jpg`} x="210" y="150" width="220" height="220" clipPath="url(#globe)"/>
         <g transform="translate(355 352)"><path d="M-6 0h12M0 0V-9M-6-14a7 7 0 0 0 12 0" stroke="#a9ef63" strokeWidth="1.2" fill="none"/><circle r="1.8" cy="-14" fill="#a9ef63"/></g>
         <text x="368" y="370" fill="#a9ef63" fontSize="8" letterSpacing="1.5">{t("GROUND STATION")}</text>
         <path d="M566 168h46m-38 30h38m-47 30h47" stroke="#c7ba78" opacity=".5"/>
         <text x="564" y="150" fill="#c7ba78" fontSize="10" letterSpacing="2">{t("SUN")}</text>
         <text x="32" y="260" fill="#688496" fontSize="10" letterSpacing="2">{t("ECLIPSE")}</text>
         <text x="330" y="140" fill="#8fb9c5" fontSize="8" letterSpacing="1.5">{t("DAY")}</text><text x="282" y="140" fill="#688496" fontSize="8" letterSpacing="1.5">{t("NIGHT")}</text>
-        <text x="548" y="410" fill="#6f8a94" fontSize="8" letterSpacing="1">{t("TO GEO 35,786 km")} →</text>
+        <text x="620" y="410" textAnchor="end" fill="#6f8a94" fontSize="8" letterSpacing="1">{t("TO GEO 35,786 km")} →</text>
         {linked && <path d={`M${x} ${y}L355 352`} stroke="#a9ef63" strokeWidth="2" strokeDasharray="5 6" className="downlink-beam"/>}
         <g transform={`translate(${x} ${y}) rotate(${-angle * 180 / Math.PI})`}>
           <circle r="27" fill={frame?.eclipse ? "#6077ab" : "#9cea65"} opacity=".08"/>
