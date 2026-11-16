@@ -1,0 +1,130 @@
+.design-approach-layer {
+  position: fixed;
+  inset: 0;
+  overflow: clip;
+  z-index: 20;
+  pointer-events: none;
+}
+
+.design-approach-art {
+  position: absolute;
+  overflow: visible;
+  transform-origin: center;
+}
+
+.phase-design :is(.equipment-panel, .plan-panel),
+.phase-review .review-panel {
+  background: #080d17dc;
+}
+
+.phase-design .assembly-stage,
+.phase-review .orbit-stage {
+  background: none;
+}
+
+.atlas-earth-photo { display: none; }
+.phase-review .atlas-earth-photo { display: inline; }
+.phase-review .atlas-eclipse-fill { display: none; }
+.phase-review .orbit-stage > svg { height: calc(100% - 36px); margin-top: 31px; }
+
+.phase-design :is(.equipment-panel, .plan-panel),
+.phase-review .review-panel {
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #333f55 transparent;
+}
+
+.cockpit:has(:is(.phase-design, .phase-review)) .eyebrow {
+  font-size: 11px;
+  letter-spacing: .12em;
+}
+
+.phase-design :is(.equipment-panel h2, .plan-panel h2),
+.phase-review h1 {
+  font-family: "Briefing Display", "Briefing Text", sans-serif;
+  font-weight: 650;
+}
+
+.phase-design :is(.equipment-panel h2, .plan-panel h2) { font-size: 21px; }
+.phase-design .stage-title .tag { font-size: 11px; }
+.phase-design .equipment-group h3 { font-size: 13px; }
+.cockpit .phase-design .equipment-tabs small {
+  font-size: 10px;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+.cockpit .phase-design .equipment-card {
+  min-height: 72px;
+  background: #101a29;
+  border-color: #2c3b54;
+}
+.cockpit .phase-design .equipment-card.selected { background: #203128; border-color: #8daf66; }
+.cockpit .phase-design .equipment-card strong { font-size: 13px; }
+.cockpit .phase-design .equipment-card small { font-size: 11px; color: #b4c4dc; }
+.cockpit .phase-design .equipment-card > span { font-size: 10px; color: #acc8bc; }
+
+.phase-design :is(.dossier, .dossier figure) { background: #0a111c; }
+.phase-design .dossier > strong,
+.phase-design .component-detail strong { font-size: 17px; }
+.phase-design :is(.dossier p, .kit-note p, .component-detail p, .combo-line) { font-size: 13px; }
+.phase-design :is(.range-label, .range-label strong, .plan-tabs button, .launcher-card strong, .preview-host > button) { font-size: 12px; }
+.phase-design :is(.dossier-combos b, .dossier-combos small, .mini-readout) { font-size: 12px; }
+.phase-design .preview-host > button { min-height: 30px; }
+.cockpit .phase-design .ma-viewer__stage {
+  min-height: 100px;
+  border-color: #293745;
+  background: radial-gradient(ellipse at center, #192e4c55, transparent 67%);
+}
+.cockpit .phase-design .ma-viewer__button { font-size: 11px; }
+.phase-design .workspace-tabs { background: #0b101c; }
+.phase-design .workspace-tabs button { font-size: 12px; }
+
+.phase-review .review-panel h1 {
+  font-size: clamp(30px, 3.4vw, 52px);
+  line-height: 1.04;
+}
+.phase-review .review-panel h2 { font-size: 16px; }
+.phase-review .review-panel > p { font-size: 15px; }
+.phase-review .checks { background: #0c1422; }
+.phase-review .checks :is(span, small) { font-size: 12px; }
+.phase-review .checks strong { font-size: 19px; }
+.phase-review :is(.details-button, .guided-toggle) { font-size: 13px; }
+.phase-review .control-tip { background: #141e2c; border-color: #303e53; }
+.phase-review .control-tip p { font-size: 13px; }
+.cockpit .phase-review .orbit-zoom button,
+.phase-review .orbit-badges .tag {
+  min-height: 28px;
+  font-size: 11px;
+}
+.phase-review .review-orbit-caption { top: 48px; }
+.phase-review .review-orbit-caption span { font-size: 11px; }
+.cockpit:has(:is(.phase-design, .phase-review)) .action-bar :is(.primary, .secondary) { font-size: 13px; }
+
+@media (max-width: 900px) {
+  .game-area.phase-review {
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #333f55 transparent;
+  }
+
+  .phase-review .review-layout {
+    display: flex;
+    flex-direction: column;
+    height: auto;
+  }
+
+  .phase-review .review-orbit {
+    display: block;
+    height: clamp(278px, 45vw, 395px);
+    border-right: 0;
+  }
+
+  .phase-review .review-orbit-caption { right: 12px; top: 43px; }
+  .phase-review .review-orbit-caption strong { font-size: 17px; }
+  .phase-review .review-orbit-caption span { font-size: 9px; }
+  .phase-review .review-panel { height: auto; padding: 19px 16px 24px; }
+  .phase-review .orbit-badges { left: 10px; bottom: 8px; }
+  .cockpit .phase-review .orbit-zoom button { padding-inline: 5px; font-size: 10px; }
+  .phase-design :is(.equipment-panel h2, .plan-panel h2) { font-size: 18px; }
+  .phase-design .component-detail p { line-height: 1.36; }
+}
