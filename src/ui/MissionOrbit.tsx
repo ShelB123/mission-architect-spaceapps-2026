@@ -1,7 +1,8 @@
-import { useMemo, useState } from "react";
+import { memo, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useLanguage } from "../i18n/Language";
 import type { MissionFrame } from "../engine/game";
 import { BriefingOrbit } from "./BriefingOrbit";
+import { displayTurns, useOrbitTween } from "../visualization/orbitMotion";
 import "./orbit-atlas.css";
 
 /**
@@ -101,19 +102,41 @@ function EarthMoon() {
   </g>;
 }
 
-export function MissionOrbit({ frame, compact = false }: { frame?: MissionFrame; compact?: boolean }) {
-  return compact ? <BriefingOrbit /> : <OrbitAtlas frame={frame} />;
+const StaticStars = memo(Stars);
+const StaticEarthMoon = memo(EarthMoon);
+const SolarMap = memo(SolarSystem);
+
+interface OrbitMapProps { frame?: MissionFrame; orbitTurns?: number; moving?: boolean }
+
+export function MissionOrbit({ compact = false, ...flight }: OrbitMapProps & { compact?: boolean }) {
+  return compact ? <BriefingOrbit /> : <OrbitAtlas {...flight} />;
 }
 
-function OrbitAtlas({ frame }: { frame?: MissionFrame }) {
+function OrbitAtlas({ frame, orbitTurns = frame?.orbitFraction ?? 0.08, moving = false }: OrbitMapProps) {
   const { t } = useLanguage();
   const [level, setLevel] = useState(0);
   const [picked, setPicked] = useState("Earth");
-  const angle = (frame?.orbitFraction ?? 0.08) * TAU;
+  const marker = useRef<SVGGElement>(null);
+  const beam = useRef<SVGPathElement>(null);
+  const tween = useOrbitTween(orbitTurns, moving);
+  const angle = orbitTurns * TAU;
   const x = 320 + 238 * Math.cos(angle), y = 260 - 202 * Math.sin(angle);
   const linked = Boolean(frame?.contact && !frame.stationOffline && frame.batteryWh > 0);
   const debris = useMemo(() => { const random = seeded(21); return Array.from({ length: 64 }, () => { const a = random() * TAU, k = 1.07 + random() * 0.09; return [320 + 238 * k * Math.cos(a), 260 - 202 * k * Math.sin(a), 0.5 + random() * 1.1, random() * 180]; }); }, []);
   const shown = level;
+  useLayoutEffect(() => {
+    if (shown !== 0) return;
+    let request = 0;
+    function paint(now: number) {
+      const phase = displayTurns(tween.current, now) * TAU;
+      const px = 320 + 238 * Math.cos(phase), py = 260 - 202 * Math.sin(phase);
+      marker.current?.setAttribute("transform", `translate(${px} ${py}) rotate(${-phase * 180 / Math.PI})`);
+      beam.current?.setAttribute("d", `M${px} ${py}L355 352`);
+      if (now < tween.current.endsAt) request = requestAnimationFrame(paint);
+    }
+    paint(performance.now());
+    return () => cancelAnimationFrame(request);
+  }, [shown, orbitTurns, moving, linked, tween]);
   return <div className="orbit-stage">
     <div className="orbit-zoom" role="group" aria-label={t("Map scale")}>
       <button aria-label={t("Zoom in")} disabled={level === 0} onClick={() => setLevel(level - 1)}>＋</button>
@@ -128,9 +151,9 @@ function OrbitAtlas({ frame }: { frame?: MissionFrame }) {
         <radialGradient id="sunGlow"><stop stopColor="#fff2b8" stopOpacity=".9"/><stop offset=".35" stopColor="#ffc860" stopOpacity=".3"/><stop offset="1" stopColor="#ffb040" stopOpacity="0"/></radialGradient>
         <clipPath id="globe"><circle cx="320" cy="260" r="110"/></clipPath>
       </defs>
-      <Stars/>
-      {shown === 1 && <EarthMoon/>}
-      {shown >= 2 && <SolarSystem outer={shown === 3} picked={picked} onPick={setPicked}/>}
+      <StaticStars/>
+      {shown === 1 && <StaticEarthMoon/>}
+      {shown >= 2 && <SolarMap outer={shown === 3} picked={picked} onPick={setPicked}/>}
       {shown === 0 && <g>
         <path className="atlas-eclipse-fill" d="M0 150H320V370H0Z" fill="#020611" opacity=".56"/>
         <path d="M0 150H320M0 370H320" stroke="#31465a" strokeWidth=".6" strokeDasharray="6 6"/>
@@ -163,8 +186,8 @@ function OrbitAtlas({ frame }: { frame?: MissionFrame }) {
         <text x="32" y="260" fill="#688496" fontSize="10" letterSpacing="2">{t("ECLIPSE")}</text>
         <text x="330" y="140" fill="#8fb9c5" fontSize="8" letterSpacing="1.5">{t("DAY")}</text><text x="282" y="140" fill="#688496" fontSize="8" letterSpacing="1.5">{t("NIGHT")}</text>
         <text x="620" y="410" textAnchor="end" fill="#6f8a94" fontSize="8" letterSpacing="1">{t("TO GEO 35,786 km")} →</text>
-        {linked && <path d={`M${x} ${y}L355 352`} stroke="#a9ef63" strokeWidth="2" strokeDasharray="5 6" className="downlink-beam"/>}
-        <g transform={`translate(${x} ${y}) rotate(${-angle * 180 / Math.PI})`}>
+        {linked && <path ref={beam} d={`M${x} ${y}L355 352`} stroke="#a9ef63" strokeWidth="2" strokeDasharray="5 6" className="downlink-beam"/>}
+        <g ref={marker} className="orbit-satellite" transform={`translate(${x} ${y}) rotate(${-angle * 180 / Math.PI})`}>
           <circle r="27" fill={frame?.eclipse ? "#6077ab" : "#9cea65"} opacity=".08"/>
           <rect x="-27" y="-9" width="18" height="18" rx="2" fill="#234d75" stroke="#7dc5f2"/>
           <rect x="9" y="-9" width="18" height="18" rx="2" fill="#234d75" stroke="#7dc5f2"/>

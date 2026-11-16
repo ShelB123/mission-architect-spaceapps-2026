@@ -10,9 +10,9 @@ import { visualCatalog } from "../../src/visualization/catalog";
 import { components, defaultMission } from "../../src/data/catalog";
 import { replayMission } from "../../src/engine/game";
 const failure=vi.hoisted(()=>({flight:false,inspection:false}));
-vi.mock("../../src/visualization/FlightScene",()=>({default:(props:{view:string;orbitFraction:number;onContextLost:()=>void})=>{
+vi.mock("../../src/visualization/FlightScene",()=>({default:(props:{view:string;orbitTurns:number;onContextLost:()=>void})=>{
   if(failure.flight)throw new Error("Render failed");
-  return <button onClick={props.onContextLost}>Flight {props.view} {props.orbitFraction}</button>;
+  return <button onClick={props.onContextLost}>Flight {props.view} {props.orbitTurns}</button>;
 }}));
 vi.mock("../../src/visualization/SpacecraftScene",()=>({default:({onContextLost}:{onContextLost:()=>void})=>{
   if(failure.inspection)throw new Error("Render failed");

@@ -1,0 +1,49 @@
+.orbit-reference {
+  display: grid;
+  justify-items: start;
+  gap: 6px;
+  margin: 3px 0 13px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.orbit-reference-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+}
+
+.orbit-reference button {
+  padding: 7px 9px;
+  font-size: 11px;
+  color: var(--ink);
+}
+
+.orbit-reference button[aria-disabled="true"] {
+  opacity: 0.65;
+  cursor: default;
+}
+
+.orbit-reference output {
+  color: var(--ink);
+}
+
+.nasa-source-link {
+  width: fit-content;
+  color: var(--cyan);
+  font-size: 11px;
+}
+
+.review-details-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 8px;
+}
+
+@media (max-width: 900px) {
+  .design-grid .plan-panel,
+  .review-layout .review-panel {
+    overflow-y: auto;
+  }
+}

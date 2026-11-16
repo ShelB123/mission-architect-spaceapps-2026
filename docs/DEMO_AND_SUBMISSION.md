@@ -10,16 +10,16 @@ The game takes the player from briefing to debrief in five phases. The model app
 
 In the demonstration, the high-resolution imager and 60 W solar array pass engineering review but return 117.7 MB, below the 250 MB target. Replacing the array with the 150 W option raises the modeled return to 294.3 MB and clears the power deficit. Both runs use seed 2026 with the same synthetic events. All component specifications and credits are fictional. The circular-orbit equations and their assumptions are documented with independent reference checks.
 
-We used NASA's *Design and Develop Science Missions* to explain the relationships between the player’s launch, spacecraft, ground and user decisions. As a separate reference exercise, we enter the published TROPICS target altitude of 550 km into the existing orbit slider. The game estimates a 95.5-minute period and 37.2% eclipse at solar beta zero. The example uses altitude only. The app models one satellite with fictional hardware and contact timing.
+In Review, **NASA mission segments** applies the launch, space, ground and user framework from NASA's *Design and Develop Science Missions* to the player's mass limit, battery, radio and data target. In the flight plan, **Use TROPICS altitude** applies NASA's published target altitude of approximately 550 km. The circular-orbit model calculates a period of 95.5 minutes at that altitude. The game also uses NASA's Blue Marble Earth and LRO-derived Moon textures. The Riverwatch flood-response briefing cites NASA and USGS Landsat examples. The game's satellite, hardware and science data are simulated.
 
-The prototype uses React, TypeScript, Vite, and Vitest. The browser presents four single-player training scenarios with prelaunch choices and automated operations. The renderer and host are in the repository. The production build currently exposes the component list in Design.
+The prototype uses React, TypeScript, Vite, and Vitest. The browser presents four single-player training scenarios with prelaunch choices, operations with player commands, and 3D views with a 2D fallback.
 
 ## Live walkthrough
 
 1. Start from a fresh Briefing. Note the 250 MB downlink objective and the requirement to stay powered. In Design, choose **High-Resolution Imager** and **Dedicated Launch**. Keep the standard array, compact battery, basic downlink, 450 km, and six orbits. The browser uses `survey` and seed 2026.
 2. Review 29 kg, 1,075 credits and the 36.98 W orbit-average generation warning against a 63 W load. Launch and show 117.7 MB returned, 320 underpowered reporting steps, and score 43. The 250 MB goal was missed.
 3. Use **Improve design** from Debrief. Select only **Expanded Solar Array** and review 32 kg and 1,215 credits. Launch again. Show 294.3 MB returned, zero underpowered steps, and score 91. Point to seed 2026 and the two event lines in Debrief. At 450 km the 63 W load uses about 37.65 Wh through the modeled full eclipse. The 150 W array can refill the reserve during sunlight.
-4. Optional when the presentation format allows. Restart at Briefing and choose 550 km. In Review point to 95.5 min and 37.2%. Explain the TROPICS target altitude and the idealized circular model. Use the 450 km solar comparison for the main demonstration.
+4. To demonstrate NASA data in the flight plan, use **Design → Flight plan → Orbit → Use TROPICS altitude**. Show the source link and the updated 95.5 min period. In Review, open **NASA mission segments** to see how the guide applies to the configured satellite.
 
 The solar comparison above was measured in Chromium on the integrated game at `1476eb9`. Select **Eyes on Earth** before recording. The updated browser invalidates earlier results on mission edits and cancels pending launches. Use **Improve design** for the solar comparison and check the final deployment against the documented configuration and seed. [Browser evidence and comparison with the MVP](QA_ACCEPTANCE.md)
 
@@ -29,21 +29,50 @@ The solar comparison above was measured in Chromium on the integrated game at `1
 
 Use the existing debrief outputs for the reveal. If the team records audio, time the spoken take and check captions. The prepared six-slide file covers the objective, mission segments, the controlled experiment, its energy explanation, and the 550 km reference.
 
-## NASA data and references fields
+## NASA Data
 
-| Entry | How it was used |
-| --- | --- |
-| [NASA, Design and Develop Science Missions](https://www.nasa.gov/wp-content/uploads/2025/04/250323-design-and-develop-science-mission.pdf) | The challenge mirror lists this resource. Slides 8, 13, and 18 inform the walkthrough's mapping from science objective and mission segments to design, operations and review. |
-| [NASA, CubeSat 101](https://www.nasa.gov/wp-content/uploads/2017/03/nasa_csli_CubeSat_101_508.pdf) | Listed on the challenge mirror; mission development and launch integration context. |
-| [NASA S3VI, 2026 Small Spacecraft Technology survey](https://www.nasa.gov/smallsat-institute/sst-soa/) | Technical review of real spacecraft power, communications, launch and ground systems. The catalog uses synthetic values. |
-| [NASA, Mission Facts About TROPICS](https://www.nasa.gov/blogs/smallsatellites/2023/05/25/mission-facts-about-nasas-tropics/) | Approximate 550 km target used as an explicit input for an educational orbit comparison. |
-| [NASA/NSSDC Earth Fact Sheet](https://nssdc.gsfc.nasa.gov/planetary/factsheet/earthfact.html), [NASA/JPL DE440 GM](https://ssd.jpl.nasa.gov/astro_par.html) | Mean radius and independent circular-orbit calculation. |
-| [NASA/JSC, Reid Wiseman, ISS040-E-092688](https://images.nasa.gov/details/iss040e092688) | Credited Earth-limb photograph on the presentation cover. |
-| Other sources and tools | NGA WGS 84 reference, Cal Poly CubeSat specification, vendor rating references, software tools and rights. [Source ledger](SOURCES.md). |
+The first five entries identify NASA resources used directly in the game. The local organizer's [challenge resources](https://hackathlone.com/challenges/space-mission-design-game#resources) include **Design and Develop Science Missions**. The links below lead to the original NASA sources.
+
+| Link Text | Link URL | Use in Mission Architect |
+| --- | --- | --- |
+| NASA — Design and Develop Science Missions | <https://www.nasa.gov/wp-content/uploads/2025/04/250323-design-and-develop-science-mission.pdf> | Slide 8 supplies the four segments shown with live design values in Review. |
+| NASA — Mission Facts About NASA’s TROPICS | <https://www.nasa.gov/blogs/smallsatellites/2023/05/25/mission-facts-about-nasas-tropics/> | Approximate 550 km target altitude applied to the active flight plan. |
+| NASA — The Blue Marble (2002) | <https://science.nasa.gov/earth/earth-observatory/the-blue-marble-true-color-global-imagery-at-1km-resolution/> | Historical Earth composite used in the briefing and as a 3D texture. |
+| NASA SVS — CGI Moon Kit (LRO/LROC) | <https://svs.gsfc.nasa.gov/4720/> | LRO-derived lunar color map used as a 3D texture. |
+| NASA and USGS — Landsat Disaster Management | <https://science.nasa.gov/mission/landsat/benefits/disaster-management/> | Earth-observation examples linked in the fictional Riverwatch briefing. |
+| NASA — International Space Station | <https://www.nasa.gov/reference/international-space-station/> | ISS context in the space explorer. |
+| NASA — Moon Facts | <https://science.nasa.gov/moon/facts/> | Mean Earth–Moon distance in the space explorer. |
+| NASA — What are SmallSats and CubeSats? | <https://www.nasa.gov/smallsat-institute/what-are-smallsats-and-cubesats/> | Satellite reference in the space explorer. |
+| NASA — Orbital Debris FAQ | <https://orbitaldebris.jsc.nasa.gov/faq/> | Debris reference in the space explorer. |
+| NASA/NSSDC — Earth Fact Sheet | <https://nssdc.gsfc.nasa.gov/planetary/factsheet/earthfact.html> | Reference for the 6,371 km volumetric mean radius used by the circular-orbit model. |
+| NASA/JPL — Astrodynamic Parameters (DE440) | <https://ssd.jpl.nasa.gov/astro_par.html> | Independent circular-orbit calculation in acceptance tests. |
+| NASA — CubeSat 101 | <https://science.nasa.gov/wp-content/uploads/2023/06/nasa_csli_cubesat_101_508.pdf> | Design research on mission development and launch integration. |
+| NASA S3VI — State-of-the-Art Small Spacecraft Technology | <https://www.nasa.gov/smallsat-institute/sst-soa/> | Design research on power, communications, launch and ground systems. |
+
+If the submitted demo uses the prepared slide cover, include [NASA/JSC — ISS040-E-092688](https://images.nasa.gov/details/iss040e092688), the credited Reid Wiseman photograph.
+
+## Space Agency Partner & Other Data
+
+| Link Text | Link URL | Use in Mission Architect |
+| --- | --- | --- |
+| NGA — WGS 84 Defining Parameters | <https://earth-info.nga.mil/?action=wgs84&dir=wgs84> | Reference for the Earth's GM used by the game. |
+| Cal Poly — CubeSat Design Specification Rev. 14.1 | <https://www.nasa.gov/wp-content/uploads/2018/01/cubesatdesignspecificationrev14_12022-02-09.pdf> | Cal Poly-authored dispenser and form factor design reference hosted by NASA. |
+| React | <https://react.dev/> | Game interface. |
+| Three.js | <https://threejs.org/> | 3D rendering. |
+| React Three Fiber | <https://r3f.docs.pmnd.rs/> | React bindings for 3D scenes. |
+| TypeScript | <https://www.typescriptlang.org/> | Application and engine source code. |
+| Vite | <https://vite.dev/> | Development and production build. |
+| Tailwind CSS | <https://tailwindcss.com/> | CSS build tooling. |
+| Vitest | <https://vitest.dev/> | Automated verification of the game. |
+| Inter | <https://github.com/rsms/inter> | Bundled briefing typeface under SIL OFL 1.1. |
+| Bricolage Grotesque | <https://github.com/ateliertriay/bricolage> | Bundled briefing display typeface under SIL OFL 1.1. |
+| Cloudflare Pages | <https://pages.cloudflare.com/> | Hosting for the live game. |
+
+See the [source ledger](SOURCES.md#rights-and-redistribution) for supporting design references and media credits.
 
 ## AI use declaration
 
-The team used OpenAI ChatGPT and Anthropic Claude to assist development of the prototype. OpenAI Codex assisted this contribution with source research, acceptance-test code, and drafting the English documentation and slides. Public sources were checked against the cited records, and the build, tests, and browser checks were executed. The game runs its local deterministic simulation without a live language model. Synthetic inputs and modeled outputs are labeled in the documentation.
+The team used OpenAI ChatGPT and Anthropic Claude to assist development of the prototype. OpenAI Codex assisted with source research, the TROPICS altitude control and NASA mission-segment review, acceptance tests, and English documentation and slides. The game runs its local deterministic simulation without a live language model. Synthetic inputs and modeled outputs are labeled in the documentation.
 
 Before posting, review the declaration against each member’s actual usage. Record tool/version where known, affected files or assets, and what the contributor verified. If generated media enters the final demo, declare it in the project and follow the event's media wording and marking requirements. The supplied deck uses a credited historical photo and rendered text.
 
