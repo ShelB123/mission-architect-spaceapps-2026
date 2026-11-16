@@ -6,10 +6,17 @@ import {
   GROUND_CONTACT_START_FRACTION,
   ORBIT_MODEL_NOTICE,
   buildOrbitTimeline,
+  computeOrbitFacts,
   computeOrbitProfile,
+  criticalBetaDeg,
+  eclipseFractionAtBeta,
   hasGroundContact,
   isInEclipse,
+  nextOrbitEvents,
+  orbitModelNotice,
   orbitStateAt,
+  orbitValidityNotes,
+  withBetaAngle,
 } from "../src/engine/orbit";
 
 describe("ideal circular orbit", () => {
@@ -200,6 +207,7 @@ describe("orbit timeline", () => {
       kind: "circular-two-body-beta-zero",
       fidelity: "educational-idealization",
       frame: "sun-fixed-orbital-plane",
+      betaDeg: 0,
       notice: ORBIT_MODEL_NOTICE,
     });
     expect(ORBIT_MODEL_NOTICE).toMatch(/not a high-fidelity/i);
@@ -267,5 +275,251 @@ describe("orbit timeline", () => {
     for (const orbits of [0, -1, 2.5, NaN]) expect(() => buildOrbitTimeline(profile, orbits)).toThrow(RangeError);
     for (const n of [3, 10.5, NaN]) expect(() => buildOrbitTimeline(profile, 2, n)).toThrow(RangeError);
     expect(() => buildOrbitTimeline(profile, 30, 5000)).toThrow(RangeError);
+  });
+});
+
+describe("solar beta angle", () => {
+  const profile = computeOrbitProfile({ altitudeKm: 450 });
+  const r = profile.orbitalRadiusKm;
+
+  it("is bit-identical to the mission profile at beta 0", () => {
+    for (const altitudeKm of [160, 450, 1000, 40000]) {
+      const p = computeOrbitProfile({ altitudeKm });
+      expect(eclipseFractionAtBeta(p.orbitalRadiusKm)).toBe(p.eclipseFraction);
+      expect(eclipseFractionAtBeta(p.orbitalRadiusKm, 0)).toBe(p.eclipseFraction);
+      expect(withBetaAngle(p, 0)).toEqual(p);
+    }
+  });
+
+  // Computed outside the engine (Python floats) from f = acos(√(r²−R²)/(r·cos β))/π.
+  it.each([
+    { altitudeKm: 450, betaDeg: 30, fraction: 0.364669, minutes: 34.0746 },
+    { altitudeKm: 450, betaDeg: 60, fraction: 0.246698, minutes: 23.0514 },
+    { altitudeKm: 450, betaDeg: 69, fraction: 0.025687, minutes: 2.4002 },
+    { altitudeKm: 450, betaDeg: 70, fraction: 0, minutes: 0 },
+    { altitudeKm: 1000, betaDeg: 30, fraction: 0.302771, minutes: 31.7807 },
+    { altitudeKm: 1000, betaDeg: 60, fraction: 0, minutes: 0 },
+  ])("matches the reference at $altitudeKm km, beta $betaDeg°", ({ altitudeKm, betaDeg, fraction, minutes }) => {
+    const p = computeOrbitProfile({ altitudeKm });
+    const f = eclipseFractionAtBeta(p.orbitalRadiusKm, betaDeg);
+    expect(Math.abs(f - fraction)).toBeLessThan(1e-6);
+    expect(Math.abs((f * p.periodSeconds) / 60 - minutes)).toBeLessThan(1e-3);
+    expect(eclipseFractionAtBeta(p.orbitalRadiusKm, -betaDeg)).toBe(f); // symmetric in the sign of beta
+  });
+
+  it("is continuous at beta 0, decreases with |beta| and vanishes at the critical angle", () => {
+    expect(eclipseFractionAtBeta(r, 1e-6)).toBeCloseTo(profile.eclipseFraction, 9);
+    let previous = profile.eclipseFraction;
+    for (let beta = 1; beta <= 90; beta++) {
+      const f = eclipseFractionAtBeta(r, beta);
+      expect(f).toBeLessThanOrEqual(previous);
+      expect(f).toBeGreaterThanOrEqual(0);
+      previous = f;
+    }
+    const critical = criticalBetaDeg(r);
+    expect(critical).toBeCloseTo(69.0716, 3);
+    expect(eclipseFractionAtBeta(r, critical - 0.01)).toBeGreaterThan(0);
+    expect(eclipseFractionAtBeta(r, critical + 0.01)).toBe(0);
+    expect(eclipseFractionAtBeta(r, 90)).toBe(0);
+  });
+
+  it("timeline illumination equals the 3D cylindrical-shadow test", () => {
+    for (const betaDeg of [0, 20, 45, 65, -45, 80]) {
+      const timeline = buildOrbitTimeline(profile, 1, { samplesPerOrbit: 997, betaDeg });
+      const b = (betaDeg * Math.PI) / 180;
+      const sun = { x: Math.cos(b), z: Math.sin(b) }; // unit vector; the orbit lies in z = 0
+      // The first and last samples sit at the subsolar point; none of 997 steps lands on a shadow edge.
+      for (const sample of timeline.samples) {
+        const along = sample.positionKm.x * sun.x;
+        const perpendicular = Math.sqrt(r * r - along * along);
+        const shadowed = along < 0 && perpendicular < EARTH_RADIUS_KM;
+        expect(sample.illumination === "eclipse").toBe(shadowed);
+      }
+    }
+  });
+
+  it("timeline reports the beta it used and leaves the input profile alone", () => {
+    const frozen = Object.freeze({ ...profile });
+    const tilted = buildOrbitTimeline(frozen, 2, { betaDeg: 60 });
+    expect(tilted.model.kind).toBe("circular-two-body-fixed-beta");
+    expect(tilted.model.betaDeg).toBe(60);
+    expect(tilted.model.notice).toBe(orbitModelNotice(60));
+    expect(tilted.model.notice).toMatch(/60°/);
+    expect(tilted.model.notice).toMatch(/not a high-fidelity/i);
+    expect(tilted.profile.eclipseFraction).toBeCloseTo(0.246698, 6);
+    expect(tilted.profile.eclipseFraction + tilted.profile.sunlightFraction).toBe(1);
+    expect(tilted.profile.periodSeconds).toBe(profile.periodSeconds);
+    expect(tilted.eclipseIntervals).toHaveLength(2);
+
+    const sunlit = buildOrbitTimeline(profile, 2, { betaDeg: 75 });
+    expect(sunlit.eclipseIntervals).toEqual([]);
+    expect(sunlit.samples.every((sample) => sample.illumination === "sunlight")).toBe(true);
+
+    expect(buildOrbitTimeline(profile, 2, { betaDeg: 0 })).toEqual(buildOrbitTimeline(profile, 2));
+    expect(buildOrbitTimeline(profile, 2, { samplesPerOrbit: 60 })).toEqual(buildOrbitTimeline(profile, 2, 60));
+  });
+
+  it("rejects invalid beta and radius", () => {
+    for (const beta of [NaN, Infinity, 90.01, -91]) {
+      expect(() => eclipseFractionAtBeta(r, beta)).toThrow(RangeError);
+      expect(() => buildOrbitTimeline(profile, 1, { betaDeg: beta })).toThrow(RangeError);
+    }
+    for (const radius of [NaN, EARTH_RADIUS_KM, 100]) {
+      expect(() => eclipseFractionAtBeta(radius, 10)).toThrow(RangeError);
+      expect(() => criticalBetaDeg(radius)).toThrow(RangeError);
+    }
+  });
+});
+
+describe("velocity in the timeline frame", () => {
+  const profile = computeOrbitProfile({ altitudeKm: 450 });
+  it("has the circular speed, is perpendicular to position and matches a finite difference", () => {
+    const dt = 0.01;
+    for (let i = 0; i < 50; i++) {
+      const t = i * 173.3;
+      const a = orbitStateAt(profile, t);
+      const b = orbitStateAt(profile, t + dt);
+      const { x: vx, y: vy } = a.velocityKmPerSecond;
+      expect(Math.hypot(vx, vy)).toBeCloseTo(profile.speedKmPerSecond, 12);
+      expect(vx * a.positionKm.x + vy * a.positionKm.y).toBeCloseTo(0, 8);
+      expect((b.positionKm.x - a.positionKm.x) / dt).toBeCloseTo(vx, 3);
+      expect((b.positionKm.y - a.positionKm.y) / dt).toBeCloseTo(vy, 3);
+    }
+    expect(orbitStateAt(profile, 0).velocityKmPerSecond).toEqual({ x: -0, y: profile.speedKmPerSecond });
+  });
+  it("rejects a profile without a valid speed", () => {
+    expect(() => orbitStateAt({ ...profile, speedKmPerSecond: NaN }, 0)).toThrow(RangeError);
+  });
+});
+
+describe("event countdowns", () => {
+  const profile = computeOrbitProfile({ altitudeKm: 450 });
+  const T = profile.periodSeconds;
+  const f = profile.eclipseFraction;
+
+  it("counts down to the next eclipse and contact transitions", () => {
+    const start = nextOrbitEvents(profile, 0);
+    expect(start.illumination).toBe("sunlight");
+    expect(start.secondsToEclipseStart).toBeCloseTo((0.5 - f / 2) * T, 6);
+    expect(start.secondsToEclipseEnd).toBeCloseTo((0.5 + f / 2) * T, 6);
+    expect(start.inGroundContact).toBe(false);
+    expect(start.secondsToContactStart).toBeCloseTo(0.78 * T, 6);
+    expect(start.secondsToContactEnd).toBeCloseTo(0.96 * T, 6);
+
+    const mid = nextOrbitEvents(profile, 2.5 * T);
+    expect(mid.illumination).toBe("eclipse");
+    expect(mid.secondsToEclipseEnd).toBeCloseTo((f / 2) * T, 6);
+    expect(mid.secondsToEclipseStart).toBeCloseTo((1 - f / 2) * T, 6); // next orbit's eclipse
+
+    const late = nextOrbitEvents(profile, 0.9 * T);
+    expect(late.inGroundContact).toBe(true);
+    expect(late.secondsToContactEnd).toBeCloseTo(0.06 * T, 6);
+    expect(late.secondsToContactStart).toBeCloseTo(0.88 * T, 6);
+  });
+
+  it("is consistent with the timeline intervals and the state at the predicted time", () => {
+    const timeline = buildOrbitTimeline(profile, 3);
+    for (let i = 0; i < 300; i++) {
+      const t = (i + 0.31) * (2 * T / 300);
+      const next = nextOrbitEvents(profile, t);
+      for (const seconds of [next.secondsToEclipseStart!, next.secondsToEclipseEnd!, next.secondsToContactStart, next.secondsToContactEnd]) {
+        expect(seconds).toBeGreaterThan(0);
+        expect(seconds).toBeLessThanOrEqual(T);
+      }
+      const nextStart = timeline.eclipseIntervals.find((interval) => interval.startSeconds > t)!.startSeconds;
+      const nextEnd = timeline.eclipseIntervals.find((interval) => interval.endSeconds > t)!.endSeconds;
+      expect(t + next.secondsToEclipseStart!).toBeCloseTo(nextStart, 5);
+      expect(t + next.secondsToEclipseEnd!).toBeCloseTo(nextEnd, 5);
+      expect(orbitStateAt(profile, t + next.secondsToEclipseStart! + 1).illumination).toBe("eclipse");
+      expect(orbitStateAt(profile, t + next.secondsToEclipseEnd! + 1).illumination).toBe("sunlight");
+    }
+  });
+
+  it("reports a transition happening now one period ahead and null without eclipse", () => {
+    expect(nextOrbitEvents(profile, T / 2 + 0).secondsToEclipseStart).toBeLessThanOrEqual(T);
+    const quarter = nextOrbitEvents({ ...profile, eclipseFraction: 0.5 }, T / 4); // start exactly at 0.25
+    expect(quarter.illumination).toBe("eclipse");
+    expect(quarter.secondsToEclipseStart).toBe(T);
+    const sunlit = nextOrbitEvents(withBetaAngle(profile, 80), 100);
+    expect(sunlit.secondsToEclipseStart).toBeNull();
+    expect(sunlit.secondsToEclipseEnd).toBeNull();
+    expect(() => nextOrbitEvents(profile, -1)).toThrow(RangeError);
+  });
+});
+
+describe("configurable fictional contact window", () => {
+  const profile = computeOrbitProfile({ altitudeKm: 450 });
+  const T = profile.periodSeconds;
+  const window = { startFraction: 0.1, endFraction: 0.3 };
+
+  it("defaults to the mission engine's window", () => {
+    for (const phase of [0, 0.5, 0.78, 0.9, 0.96]) {
+      expect(hasGroundContact(phase, { startFraction: 0.78, endFraction: 0.96 })).toBe(hasGroundContact(phase));
+    }
+  });
+  it("applies a custom window to predicate, state, countdown and timeline", () => {
+    expect(hasGroundContact(0.1, window)).toBe(true);
+    expect(hasGroundContact(0.3, window)).toBe(false);
+    expect(hasGroundContact(0.85, window)).toBe(false);
+    expect(orbitStateAt(profile, 0.2 * T, { contactWindow: window }).inGroundContact).toBe(true);
+    expect(orbitStateAt(profile, 0.2 * T).inGroundContact).toBe(false);
+    expect(nextOrbitEvents(profile, 0, { contactWindow: window }).secondsToContactStart).toBeCloseTo(0.1 * T, 6);
+    const timeline = buildOrbitTimeline(profile, 2, { contactWindow: window });
+    expect(timeline.groundContactIntervals[1].startSeconds).toBeCloseTo(1.1 * T, 6);
+    expect(timeline.groundContactIntervals[1].endSeconds).toBeCloseTo(1.3 * T, 6);
+    const inContact = timeline.samples.filter((sample) => sample.inGroundContact).length;
+    expect(inContact / timeline.samples.length).toBeCloseTo(0.2, 2);
+  });
+  it("rejects malformed windows", () => {
+    for (const bad of [
+      { startFraction: 0.5, endFraction: 0.5 },
+      { startFraction: 0.6, endFraction: 0.4 },
+      { startFraction: -0.1, endFraction: 0.4 },
+      { startFraction: 0.2, endFraction: 1.1 },
+      { startFraction: NaN, endFraction: 0.4 },
+    ]) {
+      expect(() => hasGroundContact(0.2, bad)).toThrow(RangeError);
+      expect(() => buildOrbitTimeline(profile, 1, { contactWindow: bad })).toThrow(RangeError);
+    }
+  });
+});
+
+describe("derived facts and validity notes", () => {
+  // Computed outside the engine (Python floats) with R = 6371 km and the engine's μ.
+  it.each([
+    { altitudeKm: 450, revolutionsPerDay: 15.410995, horizonDistanceKm: 2436.4729, horizonCentralAngleDeg: 20.928443, visibleSurfaceFraction: 0.032986, criticalBeta: 69.071557 },
+    { altitudeKm: 1000, revolutionsPerDay: 13.718706, horizonDistanceKm: 3707.0204, horizonCentralAngleDeg: 30.193348, visibleSurfaceFraction: 0.067833, criticalBeta: 59.806652 },
+  ])("matches the reference at $altitudeKm km", (ref) => {
+    const profile = computeOrbitProfile({ altitudeKm: ref.altitudeKm });
+    const facts = computeOrbitFacts(profile);
+    expect(Math.abs(facts.revolutionsPerDay - ref.revolutionsPerDay)).toBeLessThan(1e-5);
+    expect(Math.abs(facts.horizonDistanceKm - ref.horizonDistanceKm)).toBeLessThan(1e-3);
+    expect(Math.abs(facts.horizonCentralAngleDeg - ref.horizonCentralAngleDeg)).toBeLessThan(1e-5);
+    expect(Math.abs(facts.visibleSurfaceFraction - ref.visibleSurfaceFraction)).toBeLessThan(1e-6);
+    expect(Math.abs(facts.criticalBetaDeg - ref.criticalBeta)).toBeLessThan(1e-5);
+    expect(facts.eclipseSecondsPerOrbit).toBe(profile.eclipseFraction * profile.periodSeconds);
+    // Horizon and critical-beta angles are complementary: acos(R/r) + asin(R/r) = 90°.
+    expect(facts.horizonCentralAngleDeg + facts.criticalBetaDeg).toBeCloseTo(90, 10);
+    // Pythagoras on the tangent line.
+    expect(facts.horizonDistanceKm ** 2 + EARTH_RADIUS_KM ** 2).toBeCloseTo(profile.orbitalRadiusKm ** 2, 4);
+  });
+
+  it("emits advisory notes only where they apply", () => {
+    const codes = (altitudeKm: number, orbits?: number) =>
+      orbitValidityNotes(computeOrbitProfile({ altitudeKm }), orbits).map((note) => note.code);
+    expect(codes(450)).toEqual([]);
+    expect(codes(450, 6)).toEqual([]);
+    expect(codes(250)).toEqual(["drag-not-modeled"]);
+    expect(codes(300)).toEqual([]);
+    expect(codes(2000)).toEqual([]);
+    expect(codes(20000)).toEqual(["above-leo"]);
+    expect(codes(450, 30)).toEqual(["fixed-sun-direction"]); // 30 × 93.4 min > 1 day
+    expect(codes(450, 15)).toEqual([]); // 15 × 93.4 min < 1 day
+    expect(codes(250, 30)).toEqual(["drag-not-modeled", "fixed-sun-direction"]);
+    for (const note of orbitValidityNotes(computeOrbitProfile({ altitudeKm: 250 }), 30)) {
+      expect(note.message.length).toBeGreaterThan(20);
+    }
+    expect(() => orbitValidityNotes(computeOrbitProfile({ altitudeKm: 450 }), 0)).toThrow(RangeError);
+    expect(() => orbitValidityNotes(computeOrbitProfile({ altitudeKm: 450 }), NaN)).toThrow(RangeError);
   });
 });
