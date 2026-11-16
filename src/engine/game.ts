@@ -1,6 +1,6 @@
 import { budgetLimitCredits, scienceTargetMB } from "../data/catalog";
 import { computeOrbitProfile, hasGroundContact, isInEclipse, orbitStateAt, GROUND_CONTACT_START_FRACTION, GROUND_CONTACT_END_FRACTION } from "./orbit";
-import { evaluateDesign, getSelectedComponents } from "./resources";
+import { designEffects, evaluateDesign, getSelectedComponents } from "./resources";
 import type { MissionConfig, MissionResult, OrbitProfile } from "../types/contracts";
 
 /** Targets, deadlines and budgets are synthetic training settings, not NASA data. */
@@ -73,13 +73,13 @@ function randomStream(seed: number): () => number {
   };
 }
 
-function scheduleEvents(random: () => number, periodSeconds: number, orbits: number): TrainingEvent[] {
+function scheduleEvents(random: () => number, periodSeconds: number, orbits: number, calibrationFactor = 1, stationOutageFactor = 1): TrainingEvent[] {
   const calibrationOrbit = Math.floor(random() * orbits);
   const calibrationStart = (calibrationOrbit + 0.05 + 0.1 * random()) * periodSeconds;
   const stationOrbit = Math.floor(random() * orbits);
   const events: TrainingEvent[] = [
-    { kind: "calibration", startSeconds: calibrationStart, endSeconds: calibrationStart + 600 },
-    { kind: "station-offline", startSeconds: stationOrbit * periodSeconds, endSeconds: (stationOrbit + 1) * periodSeconds },
+    { kind: "calibration", startSeconds: calibrationStart, endSeconds: calibrationStart + 600 * calibrationFactor },
+    { kind: "station-offline", startSeconds: stationOrbit * periodSeconds, endSeconds: (stationOrbit + stationOutageFactor) * periodSeconds },
   ];
   return events.sort((a, b) => a.startSeconds - b.startSeconds);
 }
@@ -123,9 +123,11 @@ export function runMission(config: MissionConfig, seed = 1, scenarioId: MissionS
 
   const selected = getSelectedComponents(config);
   const cameraPowerW = selected.find((c) => c.category === "payload")?.nominalPowerW ?? 0;
-  const payloadRate = selected.find((c) => c.category === "payload")?.scienceMBperMinute ?? 0;
-  const radioRate = selected.find((c) => c.category === "communications")?.downlinkMBperMinute ?? 0;
-  const trainingEvents = scheduleEvents(random, orbit.periodSeconds, config.durationOrbits);
+  // Support subsystems and synergies are synthetic multipliers; all equal 1 for the MVP kit.
+  const effects = designEffects(selected);
+  const payloadRate = (selected.find((c) => c.category === "payload")?.scienceMBperMinute ?? 0) * effects.scienceRateMultiplier;
+  const radioRate = (selected.find((c) => c.category === "communications")?.downlinkMBperMinute ?? 0) * effects.downlinkRateMultiplier;
+  const trainingEvents = scheduleEvents(random, orbit.periodSeconds, config.durationOrbits, effects.calibrationFactor, effects.stationOutageFactor);
   for (const event of trainingEvents) {
     const effect = event.kind === "calibration" ? "payload acquisition paused; nominal load remains on"
       : "ground station unavailable; downlink paused; nominal load remains on";

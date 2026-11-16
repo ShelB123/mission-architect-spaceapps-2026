@@ -1,8 +1,8 @@
 /** Presentation only: normalized scene units, exaggerated spacecraft, no flight dynamics. */
 import { Canvas, useThree } from "@react-three/fiber";
-import { useEffect, useMemo } from "react";
+import { useEffect } from "react";
 import { Vector3 } from "three";
-import { SpaceNeighborhood } from "./SpaceEnvironment";
+import { SpaceNeighborhood, StarField, Sun, SUN_POSITION } from "./SpaceEnvironment";
 import type { EnvironmentId } from "./environment";
 import { Assembly } from "./SpacecraftScene";
 import type { SpacecraftVisualModel } from "./types";
@@ -42,18 +42,18 @@ function ViewCamera({ phase, view, onContextLost }: { phase: number; view: Fligh
 
 function World({ model, orbitFraction, eclipse, contact, view, onContextLost, onInspect }: FlightSceneProps) {
   const phase = orbitFraction * Math.PI * 2;
-  const stars = useMemo(() => new Float32Array(Array.from({length:160}, (_,i) => { const y=1-2*(i+.5)/160;const r=Math.sqrt(1-y*y);return [35*r*Math.cos(i*2.39996),35*y,35*r*Math.sin(i*2.39996)]; }).flat()), []);
   return <><ViewCamera phase={phase} view={view} onContextLost={onContextLost}/>
-    <color attach="background" args={["#020711"]}/><ambientLight intensity={.4}/><directionalLight position={[20,4,0]} intensity={2.4}/>
-    <points><bufferGeometry><bufferAttribute attach="attributes-position" args={[stars,3]}/></bufferGeometry><pointsMaterial size={.075} color="#d7ecff" sizeAttenuation/></points>
-    <SpaceNeighborhood onInspect={onInspect}/>
+    <color attach="background" args={["#000003"]}/><ambientLight intensity={.045}/><directionalLight position={SUN_POSITION} intensity={3.4} color="#fff6e8"/>
+    <hemisphereLight args={["#31517a", "#000000", .12]}/>
+    <StarField/><Sun/>
+    <SpaceNeighborhood onInspect={onInspect} phase={phase}/>
     <group position={[4.2*Math.cos(phase),0,4.2*Math.sin(phase)]} rotation={[0,-phase+Math.PI/2,0]}>
       {view === "chase" && <group scale={2}><Assembly model={model} schematic={false} reducedMotion/></group>}
       {view === "chase" && contact && <mesh rotation={[Math.PI/2,0,0]}><coneGeometry args={[.15,1.1,16,1,true]}/><meshBasicMaterial color="#9fffe0" transparent opacity={.35}/></mesh>}
-      <pointLight color={eclipse ? "#45679c" : "#ffffff"} intensity={eclipse ? .25 : .7} distance={2}/>
+      <pointLight position={[0,.5,.6]} color={eclipse ? "#6f93c9" : "#ffffff"} intensity={eclipse ? .9 : .5} distance={3}/>
     </group>
   </>;
 }
 export default function FlightScene(props: FlightSceneProps) {
-  return <Canvas frameloop="demand" dpr={[1,1.5]} camera={{fov:65,near:.01,far:100}} gl={{antialias:true,powerPreference:"default"}}><World {...props}/></Canvas>;
+  return <Canvas frameloop="demand" dpr={[1,1.5]} camera={{fov:65,near:.01,far:200}} gl={{antialias:true,powerPreference:"default"}}><World {...props}/></Canvas>;
 }

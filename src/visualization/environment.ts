@@ -27,6 +27,6 @@ export const environmentEntries: readonly EnvironmentEntry[] = [
     source:"https://www.nasa.gov/smallsat-institute/what-are-smallsats-and-cubesats/",credit:"Mission Architect · synthetic geometry" },
   {id:"debris",name:{en:"Orbital debris",es:"Basura espacial"},
     fact:{en:"Discarded rocket parts and fragments can remain in Earth orbit. Even small debris can damage a spacecraft at orbital speeds.",es:"Restos de cohetes y fragmentos pueden permanecer en órbita terrestre. Incluso piezas pequeñas pueden dañar una nave a velocidades orbitales."},
-    lesson:{en:"Real avoidance needs tracking, uncertainty estimates and propulsion. These example pieces can be inspected; avoiding collisions is not playable yet.",es:"Evitar un choque requiere seguimiento, estimar incertidumbres y propulsión. Puedes inspeccionar estas piezas de ejemplo; esquivar colisiones todavía no es jugable."},
+    lesson:{en:"Real avoidance needs tracking, uncertainty estimates and propulsion. The drifting field is decorative and its fragments are drawn far larger than reality; avoiding collisions is not playable yet.",es:"Evitar un choque requiere seguimiento, estimar incertidumbres y propulsión. El campo de fragmentos es decorativo y se dibuja mucho más grande que en la realidad; esquivar colisiones todavía no es jugable."},
     source:"https://orbitaldebris.jsc.nasa.gov/faq/",credit:"Mission Architect · synthetic geometry" }
 ];
