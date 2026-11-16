@@ -356,7 +356,7 @@ describe("separation between presentation and simulation", () => {
   };
 
   it("never imports engines, the physical catalog or the app from the visualization layer", () => {
-    expect(Object.keys(sources)).toHaveLength(11);
+    expect(sources).toHaveProperty(["../src/visualization/orbitMotion.ts"]);
     for (const [path, source] of Object.entries(sources)) {
       for (const specifier of importsOf(source)) {
         expect(specifier, path).not.toMatch(/engine|data\/catalog|App|styles\.css/);

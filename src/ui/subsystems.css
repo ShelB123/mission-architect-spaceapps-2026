@@ -7,16 +7,6 @@
 .cockpit .equipment-card strong{font-size:10.5px;line-height:1.25}
 .cockpit .equipment-card small{font-size:9.5px}
 .cockpit .equipment-card>span{font-size:8px}
-.dossier{margin-top:12px;border:1px solid var(--line);border-radius:4px;background:#0b161c;padding:10px;display:flex;flex-direction:column;gap:4px}
-.dossier figure{margin:0 0 4px;border:1px solid #1d323b;border-radius:3px;background:radial-gradient(circle at 50% 40%,#16303a,#070d11 75%);position:relative}
-.dossier .part-sketch{display:block;width:100%;height:150px}
-.dossier figcaption{position:absolute;right:6px;bottom:4px;font-size:7.5px;letter-spacing:.4px;color:#6f8a94;text-transform:uppercase}
-.dossier .eyebrow{font-size:8px;margin-top:5px}
-.dossier>strong{font-size:14px;color:var(--ink)}
-.dossier p{font-size:11px;line-height:1.45;margin:0;color:#a9bcc4}
-.dossier .dossier-context{color:#d5e2e7;border-left:2px solid var(--cyan);padding-left:8px}
-.dossier-stats{display:flex;gap:5px;flex-wrap:wrap;margin-top:3px}
-.dossier-stats span{border:1px solid var(--line);padding:2px 7px;font:10px Consolas,monospace;color:var(--lime);background:#13221e}
 .dossier-combos{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
 .dossier-combos li{border:1px dashed #2c444e;border-radius:3px;padding:6px 8px}
 .dossier-combos li[data-active=true]{border:1px solid var(--lime);background:#1a2a1c}
@@ -25,9 +15,7 @@
 .dossier-combos p{font-size:10px;margin:2px 0}
 .dossier-combos small{font-size:9px;color:#8fa6b0}
 .dossier-combos li[data-active=true] small{color:var(--lime);letter-spacing:.6px}
-.dossier-empty{font-size:10px;color:#7f97a1}
 .combo-line{display:block;margin-top:6px;font-size:10px;color:#9fb4bd}
 .combo-line b{color:var(--lime);font-weight:500}
-@media(max-height:760px){.dossier .part-sketch{height:110px}}
-/* The eight-subsystem list and the dossier are taller than the panel: let the wheel scroll it. */
+/* The equipment list can extend below the panel on shorter screens. */
 .cockpit .equipment-panel.panel-scroll{overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#344952 transparent}

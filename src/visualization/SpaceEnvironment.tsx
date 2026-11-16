@@ -55,18 +55,28 @@ void main(){ float rim = pow(1.0 - max(dot(vNormal, vView), 0.0), 2.6); float da
   vec3 tint = mix(vec3(1.0,0.45,0.2), vec3(0.32,0.62,1.0), smoothstep(0.0,0.5,day)); gl_FragColor = vec4(tint * rim * day * 1.25, rim * day); }`;
 
 /** Blue Marble surface with a thin sunlit atmosphere rim; the night side stays dark. */
-export function Earth({ sun = SUN_POSITION }: { sun?: V3 }) {
+export function Earth({ sun = SUN_POSITION, inFlight = false }: { sun?: V3; inFlight?: boolean }) {
   const texture = useSurface("textures/earth-blue-marble.jpg");
   const uniforms = useMemo(() => ({ sunDirection: { value: new Vector3(...sun).normalize() } }), [sun[0], sun[1], sun[2]]);
   return <group>
-    <mesh rotation={[0,-HALF,0]}><sphereGeometry args={[3,128,96]}/><meshStandardMaterial key={texture ? "textured" : "plain"} map={texture} color={texture ? "#ffffff" : "#26577e"} roughness={.85} metalness={.05}/></mesh>
-    <mesh><sphereGeometry args={[3.07,96,64]}/><shaderMaterial vertexShader={ATMOSPHERE_VERTEX} fragmentShader={ATMOSPHERE_FRAGMENT} uniforms={uniforms} transparent blending={AdditiveBlending} depthWrite={false}/></mesh>
+    <mesh rotation={[0,-HALF,0]}>
+      <sphereGeometry args={[3, inFlight ? 64 : 128, inFlight ? 40 : 96]}/>
+      {inFlight
+        ? <meshLambertMaterial key={texture ? "textured" : "plain"} map={texture} color={texture ? "#ffffff" : "#26577e"}/>
+        : <meshStandardMaterial key={texture ? "textured" : "plain"} map={texture} color={texture ? "#ffffff" : "#26577e"} roughness={.85} metalness={.05}/>}
+    </mesh>
+    <mesh><sphereGeometry args={[3.07,inFlight ? 48 : 96,inFlight ? 32 : 64]}/><shaderMaterial vertexShader={ATMOSPHERE_VERTEX} fragmentShader={ATMOSPHERE_FRAGMENT} uniforms={uniforms} transparent blending={AdditiveBlending} depthWrite={false}/></mesh>
   </group>;
 }
 /** LROC colour map, reused as a relief map so craters catch the sunlight. */
-export function Moon() {
+export function Moon({ inFlight = false }: { inFlight?: boolean } = {}) {
   const texture = useSurface("textures/moon-lroc.jpg");
-  return <mesh><sphereGeometry args={[1,96,64]}/><meshStandardMaterial key={texture ? "textured" : "plain"} map={texture} bumpMap={texture} bumpScale={2.2} color={texture ? "#ffffff" : "#999895"} roughness={1} metalness={0}/></mesh>;
+  return <mesh>
+    <sphereGeometry args={[1, inFlight ? 24 : 96, inFlight ? 16 : 64]}/>
+    {inFlight
+      ? <meshLambertMaterial key={texture ? "textured" : "plain"} map={texture} color={texture ? "#ffffff" : "#999895"}/>
+      : <meshStandardMaterial key={texture ? "textured" : "plain"} map={texture} bumpMap={texture} bumpScale={2.2} color={texture ? "#ffffff" : "#999895"} roughness={1} metalness={0}/>}
+  </mesh>;
 }
 
 function sunGlowTexture() {
@@ -210,19 +220,15 @@ export function EnvironmentModel({id, sun}: {id:EnvironmentId; sun?: V3}) {
   return <OtherSatellite/>;
 }
 
-const FIELD_COUNT = 260;
-/**
- * Decorative debris shell. Lower fragments circle faster than higher ones
- * (angular rate ∝ r^-1.5, scaled to the player's orbit), but sizes are hugely
- * exaggerated and positions are random: this is not a conjunction model.
- */
-export function DebrisField({ phase }: { phase: number }) {
+const FIELD_COUNT = 100;
+/** Static exhibition marks, with the detailed object available through the explorer. */
+function DebrisField() {
   const mesh = useRef<InstancedMesh>(null);
   const fragments = useMemo(() => {
     const random = seeded(4242), tones = ["#9a988f", "#5b6470", "#c9ced6", "#b08d3c", "#3d4652", "#d8d8d0"];
     return Array.from({length:FIELD_COUNT}, () => {
       const radius = 3.35 + random() ** 1.6 * 2.3;
-      return { radius, rate: (4.2 / radius) ** 1.5, start: random()*Math.PI*2, inclination: (random()-.5)*2.4, node: random()*Math.PI*2,
+      return { radius, angle: random()*Math.PI*2, inclination: (random()-.5)*2.4, node: random()*Math.PI*2,
         spin: [random()*6, random()*6, random()*6] as V3, size: [.006+random()*.022, .004+random()*.014, .006+random()*.026] as V3, color: tones[Math.floor(random()*tones.length)] };
     });
   }, []);
@@ -230,7 +236,7 @@ export function DebrisField({ phase }: { phase: number }) {
     const target = mesh.current; if (!target) return;
     const dummy = new Object3D(), tint = new Color(), tilt = new Vector3(1,0,0), up = new Vector3(0,1,0);
     fragments.forEach((fragment, i) => {
-      const angle = fragment.start + phase * fragment.rate;
+      const angle = fragment.angle;
       dummy.position.set(Math.cos(angle)*fragment.radius, 0, Math.sin(angle)*fragment.radius).applyAxisAngle(tilt, fragment.inclination).applyAxisAngle(up, fragment.node);
       dummy.rotation.set(fragment.spin[0] + angle*3, fragment.spin[1] + angle*2, fragment.spin[2]);
       dummy.scale.set(...fragment.size); dummy.updateMatrix();
@@ -238,22 +244,28 @@ export function DebrisField({ phase }: { phase: number }) {
     });
     target.instanceMatrix.needsUpdate = true;
     if (target.instanceColor) target.instanceColor.needsUpdate = true;
-  }, [fragments, phase]);
+  }, [fragments]);
   return <instancedMesh ref={mesh} args={[undefined, undefined, FIELD_COUNT]} frustumCulled={false}><icosahedronGeometry args={[1,0]}/><meshStandardMaterial metalness={.6} roughness={.5} flatShading/></instancedMesh>;
 }
 
 /** Static exhibition positions: deliberately not real spacecraft tracking or conjunctions. */
-export function SpaceNeighborhood({onInspect, phase = 0}: {onInspect?:(id:EnvironmentId)=>void; phase?: number}) {
+export function SpaceNeighborhood({onInspect}: {onInspect?:(id:EnvironmentId)=>void}) {
   const select=(id:EnvironmentId)=>(e:{stopPropagation:()=>void})=>{e.stopPropagation();onInspect?.(id);};
   return <>
-    <group onClick={select("earth")}><Earth/></group>
-    <group position={[13,5,-16]} scale={1.3} rotation={[0,2.4,0]} onClick={select("moon")}><Moon/></group>
-    <group position={[2.5,1.4,3.6]} scale={.33} rotation={[0,.4,.3]} onClick={select("iss")}><Station/></group>
-    <group position={[-3.8,1.1,2]} scale={.3} rotation={[.3,.8,0]} onClick={select("satellite")}><OtherSatellite/></group>
-    <group position={[-2.8,-1.8,-3.3]} scale={.22} rotation={[1,.2,.5]} onClick={select("satellite")}><OtherSatellite/></group>
-    <group position={[3.2,-1.5,-2.7]} scale={.3} onClick={select("debris")}><Debris/></group>
-    <group position={[-1.2,2.6,3.4]} scale={.2} rotation={[1.3,.4,2]} onClick={select("debris")}><Debris/></group>
-    <group position={[4.6,.5,1.4]} scale={.16} rotation={[.2,2.2,1]} onClick={select("debris")}><Debris/></group>
-    <group onClick={select("debris")}><DebrisField phase={phase}/></group>
+    <group onClick={select("earth")}><Earth inFlight/></group>
+    <group position={[13,5,-16]} scale={1.3} rotation={[0,2.4,0]} onClick={select("moon")}><Moon inFlight/></group>
+    <group position={[2.5,1.4,3.6]} scale={.33} rotation={[0,.4,.3]} onClick={select("iss")}>
+      <Box s={[4.4,.13,.13]} c="#bfc4ce"/>
+      <Cyl d={[.22,.22,1.6]} seg={10} r={[HALF,0,0]} c="#e6e6db"/>
+      {[-2.05,-1.4,1.4,2.05].map(x => <Box key={x} p={[x,0,0]} s={[.42,.045,3.7]} c="#595f85"/>)}
+    </group>
+    <group position={[-3.8,1.1,2]} scale={.3} rotation={[.3,.8,0]} onClick={select("satellite")}>
+      <Box s={[.6,.55,.55]} c="#c3c7ca"/>
+      <Box s={[2.5,.04,.55]} c="#284675"/>
+    </group>
+    <group position={[3.2,-1.5,-2.7]} scale={.3} onClick={select("debris")}>
+      <Cyl d={[.28,.36,.63]} seg={9} r={[.7,.5,0]} c="#9e988d"/>
+    </group>
+    <group onClick={select("debris")}><DebrisField/></group>
   </>;
 }

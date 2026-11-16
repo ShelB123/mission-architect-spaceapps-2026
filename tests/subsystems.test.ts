@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { categoryOrder, components, defaultMission, optionalCategories, synergies } from "../src/data/catalog";
+import { componentLessons } from "../src/data/componentLessons";
 import { runMission } from "../src/engine/game";
 import { designEffects, evaluateDesign, getSelectedComponents } from "../src/engine/resources";
 import type { MissionConfig } from "../src/types/contracts";
@@ -13,6 +14,16 @@ describe("eight-subsystem catalog", () => {
     for (const category of categoryOrder) expect(components.filter(c => c.category === category), category).toHaveLength(8);
     expect(new Set(components.map(c => c.id)).size).toBe(64);
     for (const c of components) { expect(c.isSynthetic).toBe(true); expect(c.context, c.id).toBeTruthy(); }
+  });
+  it("supplies a visual lesson and a choice tip for every unit in both languages", () => {
+    expect(Object.keys(componentLessons).sort()).toEqual(components.map(c => c.id).sort());
+    for (const [id, lesson] of Object.entries(componentLessons)) {
+      expect(lesson.flow, id).toBeTruthy();
+      for (const [how, when] of [lesson.es, lesson.en]) {
+        expect(how.trim(), id).not.toBe("");
+        expect(when.trim(), id).not.toBe("");
+      }
+    }
   });
   it("gives every optional subsystem a free, effect-neutral bus baseline", () => {
     for (const category of optionalCategories) {

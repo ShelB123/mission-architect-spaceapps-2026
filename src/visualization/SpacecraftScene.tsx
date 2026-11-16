@@ -11,7 +11,7 @@
  */
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import type { ThreeEvent } from "@react-three/fiber";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   BoxGeometry,
   ConeGeometry,
@@ -19,6 +19,8 @@ import {
   DoubleSide,
   EdgesGeometry,
   FrontSide,
+  InstancedMesh,
+  Matrix4,
   Mesh,
   PMREMGenerator,
   Spherical,
@@ -151,30 +153,35 @@ function SolarCells({ part, highlighted }: { readonly part: VisualPart; readonly
   const geometry = useMemo(() => new BoxGeometry(cellWidth, cellHeight, 0.0008), [cellWidth, cellHeight]);
   useEffect(() => () => geometry.dispose(), [geometry]);
 
-  const cells: Triple[] = [];
-  for (let row = 0; row < rows; row += 1) {
-    for (let column = 0; column < columns; column += 1) {
-      cells.push([
-        -width / 2 + gap + cellWidth / 2 + column * (cellWidth + gap),
-        -height / 2 + gap + cellHeight / 2 + row * (cellHeight + gap),
-        depth / 2 + 0.0004,
-      ]);
+  const grid = useRef<InstancedMesh>(null);
+  useLayoutEffect(() => {
+    const mesh = grid.current;
+    if (!mesh) return;
+    const matrix = new Matrix4();
+    for (let row = 0; row < rows; row += 1) {
+      for (let column = 0; column < columns; column += 1) {
+        matrix.makeTranslation(
+          -width / 2 + gap + cellWidth / 2 + column * (cellWidth + gap),
+          -height / 2 + gap + cellHeight / 2 + row * (cellHeight + gap),
+          depth / 2 + 0.0004,
+        );
+        mesh.setMatrixAt(row * columns + column, matrix);
+      }
     }
-  }
+    mesh.instanceMatrix.needsUpdate = true;
+    mesh.computeBoundingSphere();
+  }, [width, height, depth, cellWidth, cellHeight, rows, columns]);
+
   return (
-    <>
-      {cells.map((position, index) => (
-        <mesh key={index} geometry={geometry} position={position} receiveShadow>
-          <meshStandardMaterial
-            color={part.colorHex}
-            metalness={0.6}
-            roughness={0.18}
-            emissive={highlighted ? HIGHLIGHT_COLOR : part.colorHex}
-            emissiveIntensity={highlighted ? 0.14 : 0.12}
-          />
-        </mesh>
-      ))}
-    </>
+    <instancedMesh ref={grid} args={[geometry, undefined, rows * columns]} raycast={ignoreRaycast} receiveShadow>
+      <meshStandardMaterial
+        color={part.colorHex}
+        metalness={0.6}
+        roughness={0.18}
+        emissive={highlighted ? HIGHLIGHT_COLOR : part.colorHex}
+        emissiveIntensity={highlighted ? 0.14 : 0.12}
+      />
+    </instancedMesh>
   );
 }
 

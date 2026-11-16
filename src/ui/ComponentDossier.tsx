@@ -1,10 +1,13 @@
-import { useMemo } from "react";
+import { useEffect, useId, useMemo, useRef } from "react";
+import { createPortal } from "react-dom";
 import { components, synergies } from "../data/catalog";
+import { componentLessons } from "../data/componentLessons";
 import { useLanguage } from "../i18n/Language";
 import { BUS_VISUAL_PARTS, visualCatalog } from "../visualization/catalog";
 import { CATEGORY_LABELS, type VisualPart } from "../visualization/types";
 import type { DesignEffects, DesignSynergy, SpaceComponent } from "../types/contracts";
 import "./subsystems.css";
+import "./component-guide.css";
 
 type P3 = [number, number, number];
 type Effectful = Pick<SpaceComponent, "scienceRateMultiplier" | "downlinkRateMultiplier" | "batteryCapacityMultiplier" | "calibrationFactor" | "stationOutageFactor">;
@@ -83,7 +86,9 @@ export function PartSketch({ componentId, label }: { componentId: string; label:
       }));
     if (!faces.length) return null;
     faces.sort((a, b) => Number(b.ghost) - Number(a.ghost) || a.depth - b.depth);
-    const xs = faces.flatMap(face => face.points.map(point => point[0])), ys = faces.flatMap(face => face.points.map(point => -point[1]));
+    const hardware = faces.filter(face => !face.ghost);
+    const framing = hardware.length ? hardware : faces;
+    const xs = framing.flatMap(face => face.points.map(point => point[0])), ys = framing.flatMap(face => face.points.map(point => -point[1]));
     const minX = Math.min(...xs), minY = Math.min(...ys), width = Math.max(...xs) - minX, height = Math.max(...ys) - minY;
     const pad = Math.max(width, height) * 0.08;
     return { faces, viewBox: `${minX - pad} ${minY - pad} ${width + pad * 2} ${height + pad * 2}`, stroke: Math.max(width, height) / 260 };
@@ -95,23 +100,125 @@ export function PartSketch({ componentId, label }: { componentId: string; label:
   </svg>;
 }
 
-/** Context card: drawing, real-world example, synthetic numbers and combination rules. Read-only. */
-export function ComponentDossier({ component, selectedIds, effects }: { component: SpaceComponent; selectedIds: readonly string[]; effects: DesignEffects }) {
-  const { t } = useLanguage();
+type Step = readonly [icon: string, english: string, spanish: string];
+const steps = {
+  light: ["☀", "Light", "Luz"], ground: ["◒", "Ground", "Suelo"], lens: ["◉", "Lens", "Lente"],
+  image: ["▧", "Image", "Imagen"], bands: ["▥", "Color bands", "Bandas de color"], material: ["◇", "Materials", "Materiales"],
+  infrared: ["≋", "Infrared", "Infrarrojo"], sensor: ["◉", "Sensor", "Sensor"], temperature: ["♨", "Temperature", "Temperatura"],
+  pulse: ["↟", "Pulse out", "Pulso de ida"], echo: ["↺", "Echo back", "Eco de vuelta"], map: ["▧", "Map", "Mapa"],
+  laser: ["➝", "Laser", "Láser"], time: ["◷", "Travel time", "Tiempo de viaje"], height: ["↕", "Height", "Altura"],
+  gps: ["⌁", "Navigation signal", "Señal de navegación"], air: ["≋", "Atmosphere", "Atmósfera"], layers: ["▤", "Air layers", "Capas de aire"],
+  cells: ["▥", "Solar cells", "Celdas solares"], current: ["ϟ", "Electricity", "Electricidad"],
+  reserve: ["▰", "Stored energy", "Energía guardada"], shadow: ["◐", "Eclipse", "Eclipse"],
+  files: ["▤", "Data", "Datos"], signal: ["⌁", "Radio waves", "Ondas de radio"], earth: ["⊙", "Earth station", "Estación en Tierra"],
+  direction: ["✧", "Reference", "Referencia"], turn: ["⟲", "Turn", "Giro"], aim: ["⊕", "Pointing", "Apuntado"], location: ["⊕", "Position or direction", "Posición u orientación"],
+  command: ["↳", "Command", "Orden"], chip: ["▣", "Computer", "Computadora"], task: ["✓", "Action", "Acción"],
+  stall: ["!", "Glitch", "Fallo"], recovery: ["↺", "Recovery", "Recuperación"],
+  memory: ["▰", "Memory", "Memoria"], smaller: ["▪", "Smaller files", "Archivos pequeños"],
+  warmth: ["♨", "Heat", "Calor"], blanket: ["▨", "Surface layers", "Capas exteriores"], exchange: ["⇄", "Heat exchange", "Intercambio térmico"],
+  radiator: ["▥", "Radiator", "Radiador"], space: ["✧", "Space", "Espacio"], heater: ["♨", "Heater", "Calentador"], battery: ["▰", "Battery", "Batería"],
+  propellant: ["◆", "Propellant", "Propelente"], exhaust: ["⇢", "Exhaust", "Gas expulsado"], push: ["➜", "Push", "Empujón"],
+  launch: ["▲", "Launch", "Lanzamiento"], speed: ["➝", "Speed", "Velocidad"], orbit: ["◌", "Orbit", "Órbita"],
+} satisfies Record<string, Step>;
+
+const flows = {
+  photo: [steps.ground, steps.lens, steps.image],
+  spectrum: [steps.light, steps.bands, steps.material],
+  temperature: [steps.infrared, steps.sensor, steps.temperature],
+  echo: [steps.pulse, steps.echo, steps.map],
+  range: [steps.laser, steps.time, steps.height],
+  atmosphere: [steps.gps, steps.air, steps.layers],
+  sun: [steps.light, steps.cells, steps.current],
+  charge: [steps.current, steps.reserve, steps.shadow],
+  radio: [steps.files, steps.signal, steps.earth],
+  laser: [steps.files, steps.laser, steps.earth],
+  point: [steps.direction, steps.turn, steps.aim],
+  sense: [steps.direction, steps.sensor, steps.location],
+  compute: [steps.command, steps.chip, steps.task],
+  protect: [steps.stall, steps.chip, steps.recovery],
+  compress: [steps.files, steps.chip, steps.smaller],
+  store: [steps.files, steps.memory, steps.earth],
+  retain: [steps.warmth, steps.blanket, steps.exchange],
+  cool: [steps.warmth, steps.radiator, steps.space],
+  heat: [steps.current, steps.heater, steps.battery],
+  thrust: [steps.propellant, steps.exhaust, steps.push],
+  coast: [steps.launch, steps.speed, steps.orbit],
+};
+
+/** Read-only guide. Opening it leaves the equipped configuration alone. */
+export function ComponentGuide({ component, selectedIds, effects, onClose }: {
+  component: SpaceComponent;
+  selectedIds: readonly string[];
+  effects: DesignEffects;
+  onClose: () => void;
+}) {
+  const { t, language } = useLanguage();
+  const title = useId();
+  const panel = useRef<HTMLElement>(null);
+  const info = componentLessons[component.id];
+  const [how, when] = info?.[language] ?? [t(component.description), ""];
   const ownTags = component.tags ?? [];
   const designTags = new Set(components.filter(c => selectedIds.includes(c.id) && c.category !== component.category).flatMap(c => c.tags ?? []));
-  const related = synergies.filter(synergy => synergy.requiresTags.some(tag => ownTags.includes(tag)));
+  const otherTags = new Set(components.filter(c => c.category !== component.category).flatMap(c => c.tags ?? []));
+  const related = synergies.filter(synergy =>
+    synergy.requiresTags.some(tag => ownTags.includes(tag)) &&
+    synergy.requiresTags.every(tag => ownTags.includes(tag) || otherTags.has(tag)),
+  );
   const equipped = selectedIds.includes(component.id);
-  return <section className="dossier" aria-label={t(component.name)}>
-    <figure><PartSketch componentId={component.id} label={`${t("Synthetic schematic drawing")}: ${t(component.name)}`}/><figcaption>{t("Synthetic schematic drawing")}</figcaption></figure>
-    <span className="eyebrow">{t(CATEGORY_LABELS[component.category])}</span>
-    <strong>{t(component.name)}</strong>
-    <p>{t(component.description)}</p>
-    <div className="dossier-stats"><span>{component.costCredits} cr</span><span>{component.massKg} kg</span><span>{component.nominalPowerW} W</span></div>
-    {component.context && <><span className="eyebrow">{t("IN REAL SATELLITES")}</span><p className="dossier-context">{t(component.context)}</p></>}
-    <span className="eyebrow">{t("COMBINATIONS")}</span>
-    {related.length === 0 && <p className="dossier-empty">{t("No special combinations for this part.")}</p>}
-    <ul className="dossier-combos">{related.map(synergy => {
+  const componentEffects = effectChips(component);
+  useEffect(() => {
+    const origin = document.activeElement as HTMLElement | null;
+    const cockpit = document.querySelector<HTMLElement>(".cockpit");
+    const wasInert = cockpit?.inert ?? false;
+    if (cockpit) cockpit.inert = true;
+    panel.current?.querySelector("button")?.focus();
+    return () => {
+      if (cockpit) cockpit.inert = wasInert;
+      origin?.focus();
+    };
+  }, []);
+
+  return createPortal(<div className="part-guide-overlay" onClick={event => {
+    if (event.target === event.currentTarget) onClose();
+  }}>
+    <section className="part-guide" ref={panel} data-category={component.category} role="dialog" aria-modal="true" aria-labelledby={title} onKeyDown={event => {
+      if (event.key === "Escape") { event.stopPropagation(); onClose(); }
+      if (event.key !== "Tab") return;
+      const controls = panel.current?.querySelectorAll<HTMLElement>("button, summary, a[href]");
+      const first = controls?.[0], last = controls?.[controls.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+      if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+    }}>
+      <header className="part-guide-header">
+        <div><span className="eyebrow">{t(CATEGORY_LABELS[component.category])}</span><h2 id={title}>{t(component.name)}</h2></div>
+        <button type="button" className="icon-button" aria-label={t("Close component guide")} onClick={onClose}>×</button>
+      </header>
+      <div className="part-guide-overview">
+        <figure>
+          <PartSketch componentId={component.id} label={`${t("Synthetic schematic drawing")} · ${t(component.name)}`}/>
+          <figcaption>{t("Synthetic schematic drawing")}</figcaption>
+        </figure>
+        <div>
+          <h3>{t("How it works")}</h3><p>{how}</p>
+          {info && <ol className="part-guide-flow" role="list" aria-label={t("Process diagram")}>
+            {flows[info.flow].map(([icon, en, es], index) => <li key={index}><span aria-hidden="true">{icon}</span>{language === "es" ? es : en}</li>)}
+          </ol>}
+        </div>
+      </div>
+      {when && <div className="part-guide-decision"><h3>{t("When to choose it")}</h3><p>{when}</p></div>}
+      <h3>{t("Numbers in the game")}</h3>
+      <dl className="part-guide-stats">
+        <div><dt>{t("Mass added")}</dt><dd>{component.massKg} kg</dd></div>
+        <div><dt>{t("Cost in credits")}</dt><dd>{component.costCredits} cr</dd></div>
+        <div><dt>{t("Electric power used")}</dt><dd>{component.nominalPowerW} W</dd></div>
+        {component.scienceMBperMinute !== undefined && <div><dt>{t("Data collected per minute")}</dt><dd>{component.scienceMBperMinute} MB/min</dd></div>}
+        {component.solarGenerationW !== undefined && <div><dt>{t("Power generated in sunlight")}</dt><dd>{component.solarGenerationW} W</dd></div>}
+        {component.batteryCapacityWh !== undefined && <div><dt>{t("Stored energy")}</dt><dd>{component.batteryCapacityWh} Wh</dd></div>}
+        {component.downlinkMBperMinute !== undefined && <div><dt>{t("Data sent per contact minute")}</dt><dd>{component.downlinkMBperMinute} MB/min</dd></div>}
+        {componentEffects.length > 0 && <div><dt>{t("Modeled effect")}</dt><dd>{componentEffects.map(t).join(" · ")}</dd></div>}
+      </dl>
+      {component.context && <details><summary>{t("In real satellites")}</summary><p>{t(component.context)}</p></details>}
+      {related.length > 0 && <details><summary>{t("Compatible combinations")}</summary><ul className="dossier-combos">{related.map(synergy => {
       const active = equipped && effects.activeSynergyIds.includes(synergy.id);
       const missing = synergy.requiresTags.filter(tag => !ownTags.includes(tag) && !designTags.has(tag));
       return <li key={synergy.id} data-active={active}>
@@ -119,6 +226,7 @@ export function ComponentDossier({ component, selectedIds, effects }: { componen
         <p>{t(synergy.description)}</p>
         <small>{active ? t("ACTIVE") : missing.length ? `${t("Needs")}: ${missing.map(tag => components.filter(c => c.tags?.includes(tag)).slice(0, 2).map(c => t(c.name)).join(` ${t("or")} `)).join(" + ")}` : t("Equip this part to activate")}</small>
       </li>;
-    })}</ul>
-  </section>;
+      })}</ul></details>}
+    </section>
+  </div>, document.body);
 }
