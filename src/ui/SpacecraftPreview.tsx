@@ -1,3 +1,4 @@
+import { useLanguage } from "../i18n/Language";
 import { Component, Suspense, lazy, useMemo, useState } from "react";
 import type { ComponentType, ReactNode } from "react";
 import { components } from "../data/catalog";
@@ -21,11 +22,14 @@ class PreviewBoundary extends Component<
 }
 
 /** Application-owned host. No scene, WebGL context, visual catalog or physics. */
-export function SpacecraftPreview({ selectedComponentIds, loadViewer }: {
+export function SpacecraftPreview({ selectedComponentIds, loadViewer, onInspectComponent, initiallyOpen = false }: {
   readonly selectedComponentIds: readonly string[];
   readonly loadViewer?: SpacecraftInspectionLoader;
+  readonly onInspectComponent?: (id: string) => void;
+  readonly initiallyOpen?: boolean;
 }) {
-  const [enabled, setEnabled] = useState(false);
+  const { t } = useLanguage();
+  const [enabled, setEnabled] = useState(initiallyOpen);
   const [attempt, setAttempt] = useState(0);
   const [inspectedId, setInspectedId] = useState<string | null>(null);
   const selection = useMemo(() => Object.freeze([...selectedComponentIds]), [selectedComponentIds]);
@@ -38,28 +42,28 @@ export function SpacecraftPreview({ selectedComponentIds, loadViewer }: {
     ? components.find((component) => component.id === inspectedId) : undefined;
 
   return (
-    <section className="review-box" aria-label="Spacecraft preview">
-      <h3>Spacecraft inspection</h3>
-      <ul aria-label="Selected spacecraft components">
+    <section className="review-box preview-host" aria-label={t("Spacecraft preview")}>
+      <h3>{t("Spacecraft inspection")}</h3>
+      <ul aria-label={t("Selected spacecraft components")}>
         {selection.map((id, index) => <li key={`${id}:${index}`}>
-          {components.find((component) => component.id === id)?.name ?? `Unknown component: ${id}`}
+          {t(components.find((component) => component.id === id)?.name ?? `Unknown component: ${id}`)}
         </li>)}
       </ul>
       {loadViewer ? <button type="button" className="ghost" aria-expanded={enabled} onClick={() => {
         if (!enabled) setAttempt((current) => current + 1);
         setEnabled((current) => !current);
-      }}>{enabled ? "Hide 3D preview" : "Show 3D preview"}</button>
-        : <p>3D preview is not available. You can continue designing with the component cards.</p>}
+      }}>{t(enabled ? "Hide 3D preview" : "Show 3D preview")}</button>
+        : <p>{t("3D preview is not available. You can continue designing with the component cards.")}</p>}
       {enabled && Viewer && <PreviewBoundary key={attempt} fallback={
-        <p role="status">The 3D preview could not load. Your design is still available. Hide and reopen the preview to retry.</p>
+        <div role="status"><p>{t("The 3D preview could not load. Your design is still available. Hide and reopen the preview to retry.")}</p><button onClick={() => setAttempt(value => value + 1)}>{t("Retry 3D")}</button></div>
       }>
-        <Suspense fallback={<p role="status">Loading spacecraft preview…</p>}>
+        <Suspense fallback={<p role="status">{t("Loading spacecraft preview…")}</p>}>
           <Viewer selectedComponentIds={selection} onInspectComponent={(id) => {
-            if (selection.includes(id)) setInspectedId(id);
+            if (selection.includes(id)) { setInspectedId(id); onInspectComponent?.(id); }
           }} />
         </Suspense>
       </PreviewBoundary>}
-      {inspected && <p role="status">Inspecting: {inspected.name}</p>}
+      {inspected && <p role="status">{t("Inspecting: ")}{t(inspected.name)}</p>}
     </section>
   );
 }

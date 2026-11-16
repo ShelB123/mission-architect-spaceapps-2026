@@ -15,6 +15,7 @@ function review() {
 function finishLaunch() {
   click(/Launch simulation/);
   act(() => vi.advanceTimersByTime(450));
+  click(/Finish remaining simulation/);
   expect(screen.getByText("MISSION SCORE")).toBeTruthy();
 }
 function debriefEnabled() {
@@ -41,7 +42,7 @@ describe("mission result freshness", () => {
     ["battery", () => click(/Extended Battery/)],
     ["communications", () => click(/High-Rate Downlink/)],
   ] as const)("invalidates completed results when changing %s", (_name, edit) => {
-    render(<App />);
+    render(<App initialAssisted={false} />);
     review();
     finishLaunch();
     expect(debriefEnabled()).toBe(true);
@@ -56,8 +57,8 @@ describe("mission result freshness", () => {
 
 describe("launch lifetime", () => {
   it("cancels pending work when navigating and relaunches only the edited snapshot", () => {
-    const run = vi.spyOn(game, "runMission");
-    render(<App />);
+    const run = vi.spyOn(game, "replayMission");
+    render(<App initialAssisted={false} />);
     review();
     click(/Launch simulation/);
     act(() => vi.advanceTimersByTime(200));
@@ -73,8 +74,8 @@ describe("launch lifetime", () => {
   });
 
   it("ignores duplicate launch clicks before a render", () => {
-    const run = vi.spyOn(game, "runMission");
-    render(<App />);
+    const run = vi.spyOn(game, "replayMission");
+    render(<App initialAssisted={false} />);
     review();
     const button = screen.getByRole("button", { name: /Launch simulation/ });
     act(() => { button.click(); button.click(); });
@@ -83,8 +84,8 @@ describe("launch lifetime", () => {
   });
 
   it("supports cancellation and retry without executing the canceled timer", () => {
-    const run = vi.spyOn(game, "runMission");
-    render(<App />);
+    const run = vi.spyOn(game, "replayMission");
+    render(<App initialAssisted={false} />);
     review();
     click(/Launch simulation/);
     click(/Cancel launch/);
@@ -96,14 +97,14 @@ describe("launch lifetime", () => {
   });
 
   it("clears pending work on unmount under StrictMode", () => {
-    const run = vi.spyOn(game, "runMission");
-    const view = render(<StrictMode><App /></StrictMode>);
+    const run = vi.spyOn(game, "replayMission");
+    const view = render(<StrictMode><App initialAssisted={false} /></StrictMode>);
     review();
     click(/Launch simulation/);
     view.unmount();
     act(() => vi.advanceTimersByTime(1000));
     expect(run).not.toHaveBeenCalled();
-    render(<StrictMode><App /></StrictMode>);
+    render(<StrictMode><App initialAssisted={false} /></StrictMode>);
     review();
     finishLaunch();
     expect(run).toHaveBeenCalledTimes(1);
@@ -112,8 +113,8 @@ describe("launch lifetime", () => {
 
 describe("simulation errors", () => {
   it.each([new Error("Injected engine failure"), "non-Error rejection"])("returns to Review and allows retry after %s", (failure) => {
-    const run = vi.spyOn(game, "runMission").mockImplementationOnce(() => { throw failure; });
-    render(<App />);
+    const run = vi.spyOn(game, "replayMission").mockImplementationOnce(() => { throw failure; });
+    render(<App initialAssisted={false} />);
     review();
     click(/Launch simulation/);
     act(() => vi.advanceTimersByTime(450));
@@ -129,8 +130,8 @@ describe("simulation errors", () => {
   });
 
   it("clears a previous error when editing a configuration", () => {
-    vi.spyOn(game, "runMission").mockImplementationOnce(() => { throw new Error("Try again"); });
-    render(<App />);
+    vi.spyOn(game, "replayMission").mockImplementationOnce(() => { throw new Error("Try again"); });
+    render(<App initialAssisted={false} />);
     review();
     click(/Launch simulation/);
     act(() => vi.advanceTimersByTime(450));

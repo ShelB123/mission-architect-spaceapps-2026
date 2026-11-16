@@ -10,6 +10,8 @@ import { busNodeKey, visualNodeKey } from "./buildSpacecraftVisualModel";
 import { CATEGORY_LABELS, SYNTHETIC_GEOMETRY_NOTICE } from "./types";
 import type { ComponentVisualDefinition, SpacecraftVisualModel, VisualIssue, VisualPart } from "./types";
 
+const identityText = (text: string) => text;
+
 export type FallbackReason = "loading" | "unsupported" | "context-lost" | "error" | "disabled";
 
 const REASON_TEXT: Readonly<Record<FallbackReason, string>> = {
@@ -110,9 +112,10 @@ interface BlueprintProps {
   readonly model: SpacecraftVisualModel;
   readonly highlightedComponentId?: string;
   readonly onInspectComponent?: (componentId: string) => void;
+  readonly translate?: (text: string) => string;
 }
 
-export function SpacecraftBlueprint({ model, highlightedComponentId, onInspectComponent }: BlueprintProps) {
+export function SpacecraftBlueprint({ model, highlightedComponentId, onInspectComponent, translate: t = identityText }: BlueprintProps) {
   const drawn = collectDrawnParts(model);
   const viewBox = boundsOf(drawn).map(round1).join(" ");
   const names = model.components.map((component) => component.label);
@@ -120,7 +123,7 @@ export function SpacecraftBlueprint({ model, highlightedComponentId, onInspectCo
     ? `2D front-view schematic of the spacecraft bus with ${names.join(", ")}.`
     : "2D front-view schematic of the spacecraft bus with no drawable components.";
   return (
-    <svg className="ma-viewer__blueprint" viewBox={viewBox} role="img" aria-label={summary} preserveAspectRatio="xMidYMid meet">
+    <svg className="ma-viewer__blueprint" viewBox={viewBox} role="img" aria-label={t(summary)} preserveAspectRatio="xMidYMid meet">
       {drawn.map(({ key, componentId, part, shape }) => {
         const isHighlighted = componentId !== null && componentId === highlightedComponentId;
         const className = [
@@ -149,14 +152,15 @@ interface PartsListProps {
   readonly model: SpacecraftVisualModel;
   readonly highlightedComponentId?: string;
   readonly onInspectComponent?: (componentId: string) => void;
+  readonly translate?: (text: string) => string;
 }
 
-export function SpacecraftPartsList({ model, highlightedComponentId, onInspectComponent }: PartsListProps) {
+export function SpacecraftPartsList({ model, highlightedComponentId, onInspectComponent, translate: t = identityText }: PartsListProps) {
   if (model.components.length === 0) {
-    return <p className="ma-viewer__empty">No selected component can be drawn. The fixed spacecraft bus is shown on its own.</p>;
+    return <p className="ma-viewer__empty">{t("No selected component can be drawn. The fixed spacecraft bus is shown on its own.")}</p>;
   }
   return (
-    <ul className="ma-viewer__list" aria-label="Selected components shown in the viewer">
+    <ul className="ma-viewer__list" aria-label={t("Selected components shown in the viewer")}>
       {model.components.map((component) => {
         const isHighlighted = component.componentId === highlightedComponentId;
         const internalCount = component.parts.filter((part) => part.internal).length;
@@ -174,14 +178,14 @@ export function SpacecraftPartsList({ model, highlightedComponentId, onInspectCo
             >
               <span className="ma-viewer__swatch" style={{ background: swatchColor(component) }} aria-hidden="true" />
               <span className="ma-viewer__item-text">
-                <span className="ma-viewer__item-category">{CATEGORY_LABELS[component.category]}</span>
-                <span className="ma-viewer__item-name">{component.label}</span>
-                <span className="ma-viewer__item-meta">{placement}</span>
+                <span className="ma-viewer__item-category">{t(CATEGORY_LABELS[component.category])}</span>
+                <span className="ma-viewer__item-name">{t(component.label)}</span>
+                <span className="ma-viewer__item-meta">{t(placement)}</span>
               </span>
             </button>
             {isHighlighted && (
               <p className="ma-viewer__item-parts">
-                {component.parts.length} schematic {component.parts.length === 1 ? "part" : "parts"}: {component.parts.map((part) => formatPartName(part.partId)).join(", ")}.
+                {t(`${component.parts.length} schematic ${component.parts.length === 1 ? "part" : "parts"}: ${component.parts.map((part) => formatPartName(part.partId)).join(", ")}`)}.
               </p>
             )}
           </li>
@@ -191,19 +195,19 @@ export function SpacecraftPartsList({ model, highlightedComponentId, onInspectCo
   );
 }
 
-export function SpacecraftIssues({ issues }: { readonly issues: readonly VisualIssue[] }) {
+export function SpacecraftIssues({ issues, translate: t = identityText }: { readonly issues: readonly VisualIssue[]; readonly translate?: (text: string) => string }) {
   if (issues.length === 0) return null;
   return (
     <div className="ma-viewer__issues" role="status">
-      <strong>Viewer notes</strong>
+      <strong>{t("Viewer notes")}</strong>
       <ul>
         {issues.map((item, index) => (
           <li key={`${item.code}:${item.componentId}:${index}`} data-issue-code={item.code}>
-            <span className="ma-viewer__issue-title">{ISSUE_TITLES[item.code]}:</span> {item.message}
+            <span className="ma-viewer__issue-title">{t(ISSUE_TITLES[item.code])}:</span> {t(item.message)}
           </li>
         ))}
       </ul>
-      <p className="ma-viewer__issues-note">These notes concern the drawing only. Engineering review is unaffected.</p>
+      <p className="ma-viewer__issues-note">{t("These notes concern the drawing only. Engineering review is unaffected.")}</p>
     </div>
   );
 }
@@ -215,26 +219,27 @@ export interface SpacecraftFallbackProps {
   readonly reason: FallbackReason;
   readonly highlightedComponentId?: string;
   readonly onInspectComponent?: (componentId: string) => void;
+  readonly translate?: (text: string) => string;
   readonly onRetry?: () => void;
   /** Set to false when the surrounding viewer already renders the lists. */
   readonly showLists?: boolean;
 }
 
-export default function SpacecraftFallback({ model, reason, highlightedComponentId, onInspectComponent, onRetry, showLists = true }: SpacecraftFallbackProps) {
+export default function SpacecraftFallback({ model, reason, highlightedComponentId, onInspectComponent, onRetry, showLists = true, translate: t = identityText }: SpacecraftFallbackProps) {
   return (
     <div className="ma-viewer__fallback" data-fallback-reason={reason}>
       <p className="ma-viewer__fallback-message" role="status">
-        {REASON_TEXT[reason]}
+        {t(REASON_TEXT[reason])}
         {onRetry && reason !== "loading" && reason !== "disabled" && (
-          <button type="button" className="ma-viewer__button ma-viewer__button--inline" onClick={onRetry}>Try 3D again</button>
+          <button type="button" className="ma-viewer__button ma-viewer__button--inline" onClick={onRetry}>{t("Try 3D again")}</button>
         )}
       </p>
-      <SpacecraftBlueprint model={model} highlightedComponentId={highlightedComponentId} onInspectComponent={onInspectComponent} />
+      <SpacecraftBlueprint translate={t} model={model} highlightedComponentId={highlightedComponentId} onInspectComponent={onInspectComponent} />
       {showLists && (
         <>
-          <SpacecraftPartsList model={model} highlightedComponentId={highlightedComponentId} onInspectComponent={onInspectComponent} />
-          <SpacecraftIssues issues={model.issues} />
-          <p className="ma-viewer__notice">{SYNTHETIC_GEOMETRY_NOTICE}</p>
+          <SpacecraftPartsList translate={t} model={model} highlightedComponentId={highlightedComponentId} onInspectComponent={onInspectComponent} />
+          <SpacecraftIssues translate={t} issues={model.issues} />
+          <p className="ma-viewer__notice">{t(SYNTHETIC_GEOMETRY_NOTICE)}</p>
         </>
       )}
     </div>

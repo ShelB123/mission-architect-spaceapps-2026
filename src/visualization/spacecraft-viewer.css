@@ -315,3 +315,6 @@
   stroke: var(--ma-viewer-highlight);
   stroke-width: 2.6;
 }
+
+/* Fill the cockpit flex row rather than inheriting the standalone grid alignment. */
+.cockpit .ma-viewer__body { align-items: stretch; }

@@ -8,7 +8,7 @@
  *   the 3D view is actually shown. Every failure path (no WebGL, context loss,
  *   chunk or render error, 3D turned off) lands on SpacecraftFallback.
  */
-import { Component, Suspense, lazy, useCallback, useEffect, useReducer, useState } from "react";
+import { Component, Suspense, lazy, useCallback, useEffect, useMemo, useReducer, useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
 import SpacecraftFallback, { SpacecraftIssues, SpacecraftPartsList } from "./SpacecraftFallback";
 import type { FallbackReason } from "./SpacecraftFallback";
@@ -16,7 +16,8 @@ import { SYNTHETIC_GEOMETRY_NOTICE } from "./types";
 import type { SpacecraftViewerProps } from "./types";
 import "./spacecraft-viewer.css";
 
-const SpacecraftScene = lazy(() => import("./SpacecraftScene"));
+const identityText = (text: string) => text;
+
 
 /* ---------- View state (pure, exported for tests) ---------- */
 
@@ -177,8 +178,9 @@ class SceneErrorBoundary extends Component<BoundaryProps, { failed: boolean }> {
 
 /* ---------- Viewer ---------- */
 
-export default function SpacecraftViewer({ model, highlightedComponentId, onInspectComponent, className }: SpacecraftViewerProps) {
+export default function SpacecraftViewer({ model, highlightedComponentId, onInspectComponent, className, translate: t = identityText }: SpacecraftViewerProps) {
   const [state, dispatch] = useReducer(reduceViewerState, initialViewerState);
+  const SpacecraftScene = useMemo(() => { void state.mountKey; return lazy(() => import("./SpacecraftScene")); }, [state.mountKey]);
   const [command, setCommand] = useState<CameraCommand>({ sequence: 0, kind: "reset" });
   const [reducedMotion, setReducedMotion] = useState(false);
 
@@ -225,28 +227,28 @@ export default function SpacecraftViewer({ model, highlightedComponentId, onInsp
   const showing3d = fallbackReason === null;
   const fallback = (reason: FallbackReason) => (
     <SpacecraftFallback
+      translate={t}
       model={model}
       reason={reason}
       highlightedComponentId={activeHighlightId}
       onInspectComponent={inspect}
-      onRetry={reason === "context-lost" || reason === "error" ? retry : undefined}
+      onRetry={reason === "context-lost" || reason === "error" || reason === "unsupported" ? retry : undefined}
       showLists={false}
     />
   );
 
   return (
-    <section className={`ma-viewer${className ? ` ${className}` : ""}`} aria-label="Spacecraft inspection viewer" data-viewer-mode={showing3d ? "3d" : fallbackReason}>
+    <section className={`ma-viewer${className ? ` ${className}` : ""}`} aria-label={t("Spacecraft inspection viewer")} data-viewer-mode={showing3d ? "3d" : fallbackReason}>
       <header className="ma-viewer__header">
         <div>
-          <span className="ma-viewer__eyebrow">SPACECRAFT INSPECTION</span>
-          <h3 className="ma-viewer__title">Your satellite</h3>
+          <span className="ma-viewer__eyebrow">{t("SPACECRAFT INSPECTION")}</span>
+          <h3 className="ma-viewer__title">{t("Your satellite")}</h3>
         </div>
-        <div className="ma-viewer__toolbar" role="group" aria-label="Viewer options">
+        <div className="ma-viewer__toolbar" role="group" aria-label={t("Viewer options")}>
           <button type="button" className="ma-viewer__button" aria-pressed={state.schematic} disabled={!showing3d} onClick={() => dispatch({ type: "toggle-schematic" })}>
-            Schematic view
-          </button>
+            {t("Schematic view")}</button>
           <button type="button" className="ma-viewer__button" aria-pressed={state.enabled3d} onClick={() => dispatch({ type: "toggle-3d" })}>
-            3D {state.enabled3d ? "on" : "off"}
+            {t("3D ")}{t(state.enabled3d ? "on" : "off")}
           </button>
         </div>
       </header>
@@ -259,7 +261,7 @@ export default function SpacecraftViewer({ model, highlightedComponentId, onInsp
                 className="ma-viewer__stage"
                 tabIndex={0}
                 role="group"
-                aria-label="Interactive 3D view of the spacecraft. Drag to rotate and scroll to zoom, or use the arrow keys to rotate, plus and minus to zoom, and Home to reset. The component list next to it describes the same content."
+                aria-label={t("Interactive 3D view of the spacecraft. Drag to rotate and scroll to zoom, or use the arrow keys to rotate, plus and minus to zoom, and Home to reset. The component list next to it describes the same content.")}
                 onKeyDown={handleKeyDown}
               >
                 <SceneErrorBoundary key={state.mountKey} onError={handleRenderError}>
@@ -277,9 +279,9 @@ export default function SpacecraftViewer({ model, highlightedComponentId, onInsp
                   </Suspense>
                 </SceneErrorBoundary>
               </div>
-              <div className="ma-viewer__camera" role="group" aria-label="Camera controls">
+              <div className="ma-viewer__camera" role="group" aria-label={t("Camera controls")}>
                 {CAMERA_BUTTONS.map((button) => (
-                  <button key={button.kind} type="button" className="ma-viewer__camera-button" aria-label={button.label} title={button.label} onClick={() => sendCommand(button.kind)}>
+                  <button key={button.kind} type="button" className="ma-viewer__camera-button" aria-label={t(button.label)} title={t(button.label)} onClick={() => sendCommand(button.kind)}>
                     <span aria-hidden="true">{button.glyph}</span>
                   </button>
                 ))}
@@ -288,13 +290,13 @@ export default function SpacecraftViewer({ model, highlightedComponentId, onInsp
           ) : (
             <div className="ma-viewer__stage ma-viewer__stage--fallback">{fallback(fallbackReason)}</div>
           )}
-          <p className="ma-viewer__notice">{SYNTHETIC_GEOMETRY_NOTICE}</p>
+          <p className="ma-viewer__notice">{t(SYNTHETIC_GEOMETRY_NOTICE)}</p>
         </div>
 
         <div className="ma-viewer__panel">
-          <SpacecraftPartsList model={model} highlightedComponentId={activeHighlightId} onInspectComponent={inspect} />
-          <SpacecraftIssues issues={model.issues} />
-          <p className="ma-viewer__hint">Selecting an item here only highlights it in the drawing. Use the component cards to change your design.</p>
+          <SpacecraftPartsList translate={t} model={model} highlightedComponentId={activeHighlightId} onInspectComponent={inspect} />
+          <SpacecraftIssues translate={t} issues={model.issues} />
+          <p className="ma-viewer__hint">{t("Selecting an item here only highlights it in the drawing. Use the component cards to change your design.")}</p>
         </div>
       </div>
     </section>

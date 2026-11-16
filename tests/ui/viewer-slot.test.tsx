@@ -15,18 +15,19 @@ const click = (name: RegExp) => fireEvent.click(screen.getByRole("button", { nam
 function InspectionHarness({ selectedComponentIds, onInspectComponent }: SpacecraftInspectionProps) {
   return <button onClick={() => onInspectComponent?.(selectedComponentIds[0])}>Inspect test component</button>;
 }
-const openPreview = async () => { await act(async () => click(/Show 3D preview/)); };
+const openPreview = async () => { await act(async () => { const button = screen.queryByRole("button", { name: /Show 3D preview/ }); if (button) fireEvent.click(button); }); };
 
 describe("optional viewer integration host", () => {
   it("keeps the component list and complete game available without a renderer", () => {
     vi.useFakeTimers();
-    render(<App />);
+    render(<App initialAssisted={false} />);
     click(/Begin engineering/);
     expect(screen.getByRole("list", { name: "Selected spacecraft components" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: /Show 3D preview/ })).toBeNull();
     click(/Review engineering/);
     click(/Launch simulation/);
     act(() => vi.advanceTimersByTime(450));
+    click(/Finish remaining simulation/);
     expect(screen.getByText("MISSION SCORE")).toBeTruthy();
   });
 
@@ -50,7 +51,7 @@ describe("optional viewer integration host", () => {
     const loader = vi.fn<SpacecraftInspectionLoader>()
       .mockRejectedValueOnce(new Error("Missing chunk"))
       .mockResolvedValue({ default: InspectionHarness });
-    render(<App loadSpacecraftViewer={loader} />);
+    render(<App initialAssisted={false} loadSpacecraftViewer={loader} />);
     click(/Begin engineering/);
     await openPreview();
     expect(screen.getByText(/The 3D preview could not load/)).toBeTruthy();
@@ -61,10 +62,23 @@ describe("optional viewer integration host", () => {
     expect(screen.getByRole("button", { name: "Inspect test component" })).toBeTruthy();
   });
 
+  it("retries a rejected bridge directly without hiding or resetting the design", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const loader = vi.fn<SpacecraftInspectionLoader>()
+      .mockRejectedValueOnce(new Error("Server disconnected"))
+      .mockResolvedValue({ default: InspectionHarness });
+    render(<SpacecraftPreview selectedComponentIds={defaultMission.selectedComponentIds} loadViewer={loader} initiallyOpen />);
+    await act(async () => {});
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Retry 3D" })));
+    expect(loader).toHaveBeenCalledTimes(2);
+    expect(screen.getByRole("button", { name: "Inspect test component" })).toBeTruthy();
+    expect(screen.getByRole("list", { name: "Selected spacecraft components" }).textContent).toContain("Survey Camera");
+  });
+
   it("contains render/adapter failures without breaking component selection", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     const loader = async () => ({ default: () => { throw new Error("Adapter failed"); } });
-    render(<App loadSpacecraftViewer={loader} />);
+    render(<App initialAssisted={false} loadSpacecraftViewer={loader} />);
     click(/Begin engineering/);
     await openPreview();
     expect(screen.getByText(/The 3D preview could not load/)).toBeTruthy();
@@ -111,8 +125,8 @@ describe("optional viewer integration host", () => {
   it("inspection never runs the engine or changes the subsequent mission result", async () => {
     vi.useFakeTimers();
     const baseline = game.runMission(defaultMission, 2026, "survey");
-    const run = vi.spyOn(game, "runMission");
-    render(<App loadSpacecraftViewer={async () => ({ default: InspectionHarness })} />);
+    const run = vi.spyOn(game, "replayMission");
+    render(<App initialAssisted={false} loadSpacecraftViewer={async () => ({ default: InspectionHarness })} />);
     click(/Begin engineering/);
     await openPreview();
     click(/Inspect test component/);
@@ -122,6 +136,6 @@ describe("optional viewer integration host", () => {
     click(/Launch simulation/);
     act(() => vi.advanceTimersByTime(450));
     expect(run).toHaveBeenCalledExactlyOnceWith(defaultMission, 2026, "survey");
-    expect(run.mock.results[0].value).toEqual(baseline);
+    expect(run.mock.results[0].value.result).toEqual(baseline);
   });
 });

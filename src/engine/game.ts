@@ -1,5 +1,5 @@
 import { budgetLimitCredits, scienceTargetMB } from "../data/catalog";
-import { computeOrbitProfile, hasGroundContact, isInEclipse } from "./orbit";
+import { computeOrbitProfile, hasGroundContact, isInEclipse, orbitStateAt, GROUND_CONTACT_START_FRACTION, GROUND_CONTACT_END_FRACTION } from "./orbit";
 import { evaluateDesign, getSelectedComponents } from "./resources";
 import type { MissionConfig, MissionResult, OrbitProfile } from "../types/contracts";
 
@@ -28,6 +28,35 @@ interface TrainingEvent {
   kind: "calibration" | "station-offline";
   startSeconds: number;
   endSeconds: number;
+}
+
+/** Synthetic ideal camera switch. Bus and radio loads remain on. */
+export interface MissionCommand { timeSeconds: number; cameraOn: boolean }
+export interface MissionFrame {
+  timeSeconds: number; orbitFraction: number; batteryWh: number; storedMB: number;
+  producedMB: number; transmittedMB: number; unpoweredSeconds: number;
+  cameraOn: boolean; eclipse: boolean; contact: boolean; calibration: boolean;
+  stationOffline: boolean; generationW: number; loadW: number;
+}
+export interface MissionRunOptions {
+  commands?: readonly MissionCommand[];
+  onFrame?: (frame: MissionFrame) => void;
+}
+export interface MissionReplay {
+  result: MissionResult; frames: MissionFrame[]; commands: MissionCommand[];
+}
+
+export function assessMissionDesign(config: MissionConfig, scenarioId: MissionScenarioId) {
+  if (!Object.prototype.hasOwnProperty.call(missionScenarios, scenarioId)) throw new RangeError("Unknown mission scenario.");
+  const scenario = missionScenarios[scenarioId];
+  const assessment = evaluateDesign(config);
+  const design = { ...assessment, budgetLimitCredits: Math.min(assessment.budgetLimitCredits, scenario.budgetCredits),
+    violations: [...assessment.violations], warnings: [...assessment.warnings] };
+  if (design.totalCostCredits > design.budgetLimitCredits && design.totalCostCredits <= assessment.budgetLimitCredits) {
+    design.violations.push(`Scenario budget exceeded by ${design.totalCostCredits - design.budgetLimitCredits} credits.`);
+  }
+  if (config.durationOrbits > scenario.maxOrbits) design.violations.push(`Scenario deadline exceeded: at most ${scenario.maxOrbits} orbits.`);
+  return design;
 }
 
 /** Local Mulberry32 stream: uint32 input, no global state or wall-clock dependency. */
@@ -62,7 +91,7 @@ function scheduleEvents(random: () => number, periodSeconds: number, orbits: num
  */
 function integrationBoundaries(orbit: OrbitProfile, orbits: number, events: TrainingEvent[]): number[] {
   const boundaries = events.flatMap((event) => [event.startSeconds, event.endSeconds]);
-  const phases = [0, 0.5 - orbit.eclipseFraction / 2, 0.5 + orbit.eclipseFraction / 2, 0.78, 0.96, 1];
+  const phases = [0, 0.5 - orbit.eclipseFraction / 2, 0.5 + orbit.eclipseFraction / 2, GROUND_CONTACT_START_FRACTION, GROUND_CONTACT_END_FRACTION, 1];
   for (let index = 0; index < orbits; index++) {
     for (const phase of phases) boundaries.push((index + phase) * orbit.periodSeconds);
   }
@@ -70,22 +99,14 @@ function integrationBoundaries(orbit: OrbitProfile, orbits: number, events: Trai
 }
 
 /** Compatible with the MVP call; explicit scenarios require only an optional third argument. */
-export function runMission(config: MissionConfig, seed = 1, scenarioId: MissionScenarioId = "survey"): MissionResult {
+export function runMission(config: MissionConfig, seed = 1, scenarioId: MissionScenarioId = "survey", options: MissionRunOptions = {}): MissionResult {
   const random = randomStream(seed);
   if (!Object.prototype.hasOwnProperty.call(missionScenarios, scenarioId)) {
     throw new RangeError("Unknown mission scenario.");
   }
   const scenario = missionScenarios[scenarioId];
   const orbit = computeOrbitProfile(config);
-  const assessment = evaluateDesign(config);
-  const design = { ...assessment, budgetLimitCredits: Math.min(assessment.budgetLimitCredits, scenario.budgetCredits),
-    violations: [...assessment.violations], warnings: [...assessment.warnings] };
-  if (design.totalCostCredits > design.budgetLimitCredits && design.totalCostCredits <= assessment.budgetLimitCredits) {
-    design.violations.push(`Scenario budget exceeded by ${design.totalCostCredits - design.budgetLimitCredits} credits.`);
-  }
-  if (config.durationOrbits > scenario.maxOrbits) {
-    design.violations.push(`Scenario deadline exceeded: at most ${scenario.maxOrbits} orbits.`);
-  }
+  const design = assessMissionDesign(config, scenarioId);
   const targetMB = scenario.targetMB;
   const events: string[] = [];
   const explanations: string[] = [
@@ -101,6 +122,7 @@ export function runMission(config: MissionConfig, seed = 1, scenarioId: MissionS
   }
 
   const selected = getSelectedComponents(config);
+  const cameraPowerW = selected.find((c) => c.category === "payload")?.nominalPowerW ?? 0;
   const payloadRate = selected.find((c) => c.category === "payload")?.scienceMBperMinute ?? 0;
   const radioRate = selected.find((c) => c.category === "communications")?.downlinkMBperMinute ?? 0;
   const trainingEvents = scheduleEvents(random, orbit.periodSeconds, config.durationOrbits);
@@ -112,9 +134,18 @@ export function runMission(config: MissionConfig, seed = 1, scenarioId: MissionS
   explanations.push(`Replay seed: ${seed}. Events are synthetic training operations, not real failure predictions.`, ...events);
 
   const durationSeconds = orbit.periodSeconds * config.durationOrbits;
+  const commands = (options.commands ?? []).map(command => ({ ...command }));
+  commands.forEach((command, index) => {
+    if (!Number.isFinite(command.timeSeconds) || command.timeSeconds < 0 || command.timeSeconds >= durationSeconds ||
+      typeof command.cameraOn !== "boolean" || (index > 0 && command.timeSeconds <= commands[index - 1].timeSeconds)) {
+      throw new RangeError("Commands need unique increasing times within the mission and a boolean camera state.");
+    }
+  });
+  for (const command of commands) events.push(`Operator command at ${(command.timeSeconds / 60).toFixed(2)} min: camera ${command.cameraOn ? "on" : "off"}.`);
+  if (commands.length) explanations.push("Camera-off commands remove the payload load and acquisition; bus and radio loads stay on. Commands are replayed with the same seed.");
   const stepSeconds = 60;
   const steps = Math.ceil(durationSeconds / stepSeconds);
-  const boundaries = integrationBoundaries(orbit, config.durationOrbits, trainingEvents);
+  const boundaries = [...new Set([...integrationBoundaries(orbit, config.durationOrbits, trainingEvents), ...commands.map(c => c.timeSeconds)])].sort((a, b) => a - b);
   let boundaryIndex = 0;
   let batteryWh = design.batteryCapacityWh;
   let storedMB = 0;
@@ -124,6 +155,21 @@ export function runMission(config: MissionConfig, seed = 1, scenarioId: MissionS
   let unpoweredSeconds = 0;
   const batteryHistoryWh: number[] = [];
   const dataHistoryMB: number[] = [];
+  let commandIndex = 0;
+  let cameraOn = true;
+  const record = (timeSeconds: number) => {
+    if (!options.onFrame) return;
+    const state = orbitStateAt(orbit, timeSeconds);
+    const active = trainingEvents.filter(event => timeSeconds >= event.startSeconds && timeSeconds < event.endSeconds);
+    const commandAtBoundary = commands.find(c => c.timeSeconds === timeSeconds);
+    const displayedCamera = commandAtBoundary?.cameraOn ?? cameraOn;
+    options.onFrame({ timeSeconds, orbitFraction: state.orbitFraction, batteryWh, storedMB, producedMB, transmittedMB,
+      unpoweredSeconds, cameraOn: displayedCamera, eclipse: state.illumination === "eclipse", contact: state.inGroundContact,
+      calibration: active.some(e => e.kind === "calibration"), stationOffline: active.some(e => e.kind === "station-offline"),
+      generationW: state.illumination === "eclipse" ? 0 : design.solarGenerationW,
+      loadW: design.nominalPowerW - (displayedCamera ? 0 : cameraPowerW) });
+  };
+  record(0);
 
   for (let step = 0; step < steps; step++) {
     let elapsed = step * stepSeconds;
@@ -135,9 +181,13 @@ export function runMission(config: MissionConfig, seed = 1, scenarioId: MissionS
       const dt = end - elapsed;
       // Midpoint is inside a segment bounded by every modeled state transition.
       const midpoint = elapsed + dt / 2;
+      while (commandIndex < commands.length && commands[commandIndex].timeSeconds <= elapsed) {
+        cameraOn = commands[commandIndex++].cameraOn;
+      }
       const phase = (midpoint % orbit.periodSeconds) / orbit.periodSeconds;
       const generationW = isInEclipse(phase, orbit.eclipseFraction) ? 0 : design.solarGenerationW;
-      const energyChangeWh = (generationW - design.nominalPowerW) * dt / 3600;
+      const loadW = design.nominalPowerW - (cameraOn ? 0 : cameraPowerW);
+      const energyChangeWh = (generationW - loadW) * dt / 3600;
       const powered = batteryWh + energyChangeWh >= -1e-9;
       batteryWh = Math.max(0, Math.min(design.batteryCapacityWh, batteryWh + energyChangeWh));
       if (!powered) {
@@ -146,7 +196,7 @@ export function runMission(config: MissionConfig, seed = 1, scenarioId: MissionS
       } else {
         const active = trainingEvents.filter((event) => midpoint >= event.startSeconds && midpoint < event.endSeconds);
         // MB/min × seconds/60. Calibration deliberately retains full nominal load.
-        if (!active.some((event) => event.kind === "calibration")) {
+        if (cameraOn && !active.some((event) => event.kind === "calibration")) {
           const made = payloadRate * dt / 60;
           producedMB += made;
           storedMB += made;
@@ -158,6 +208,7 @@ export function runMission(config: MissionConfig, seed = 1, scenarioId: MissionS
         }
       }
       elapsed = end;
+      record(end);
     }
     if (stepOutage) outages++;
     if (step % 5 === 0 || step === steps - 1) {
@@ -193,4 +244,11 @@ export function runMission(config: MissionConfig, seed = 1, scenarioId: MissionS
     success, score, scienceCompletion, producedMB, transmittedMB, targetMB,
     energyOutageCount: outages, batteryHistoryWh, dataHistoryMB, events, explanations, orbit, design,
   };
+}
+
+/** Same integrator as runMission; time-stamped resource states for presentation. */
+export function replayMission(config: MissionConfig, seed = 1, scenarioId: MissionScenarioId = "survey", commands: readonly MissionCommand[] = []): MissionReplay {
+  const frames: MissionFrame[] = [];
+  const result = runMission(config, seed, scenarioId, { commands, onFrame: frame => frames.push(frame) });
+  return { result, frames, commands: commands.map(c => ({ ...c })) };
 }
