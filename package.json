@@ -1,7 +1,7 @@
 {
   "name": "mission-architect-spaceapps-2026",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.1-web.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -34,5 +34,9 @@
   "engines": {
     "node": "^22.22.2 || ^24.15.0 || >=26.0.0"
   },
-  "packageManager": "npm@12.2.2"
+  "packageManager": "npm@12.2.2",
+  "description": "Browser-based educational mission design game for NASA Space Apps Challenge 2026",
+  "allowScripts": {
+    "esbuild@0.28.2": true
+  }
 }
